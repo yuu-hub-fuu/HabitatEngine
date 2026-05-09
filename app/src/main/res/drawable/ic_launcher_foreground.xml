@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+  <group
+      android:translateX="18"
+      android:translateY="18"
+      android:scaleX="0.666"
+      android:scaleY="0.666">
+    <!-- Central hexagon - the "nest" -->
+    <path
+        android:pathData="M54,22L79,36.5V65.5L54,80L29,65.5V36.5Z"
+        android:fillColor="#FFFFFF"
+        android:fillAlpha="0.95"/>
+    <!-- Inner hexagon -->
+    <path
+        android:pathData="M54,33L71,43V57L54,67L37,57V43Z"
+        android:fillColor="#0D9488"/>
+    <!-- Center dot - the "seed" -->
+    <path
+        android:pathData="M54,45m-4,0a4,4 0,1 1,8 0a4,4 0,1 1,-8 0"
+        android:fillColor="#FFFFFF"/>
+    <!-- Top-left satellite hexagon -->
+    <path
+        android:pathData="M29.5,36.5L42,43.8V58.2L29.5,65.5L17,58.2V43.8Z"
+        android:fillColor="#FFFFFF"
+        android:fillAlpha="0.7"/>
+    <path
+        android:pathData="M29.5,44L37,48.4V55.6L29.5,60L22,55.6V48.4Z"
+        android:fillColor="#0D9488"/>
+    <!-- Top-right satellite hexagon -->
+    <path
+        android:pathData="M78.5,36.5L91,43.8V58.2L78.5,65.5L66,58.2V43.8Z"
+        android:fillColor="#FFFFFF"
+        android:fillAlpha="0.7"/>
+    <path
+        android:pathData="M78.5,44L85,48.4V55.6L78.5,60L72,55.6V48.4Z"
+        android:fillColor="#0D9488"/>
+  </group>
+</vector>

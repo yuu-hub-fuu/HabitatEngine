@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+  <group
+      android:translateX="18"
+      android:translateY="18"
+      android:scaleX="0.666"
+      android:scaleY="0.666">
+    <!-- Central hexagon -->
+    <path
+        android:pathData="M54,23L77.5,36.5V63.5L54,77L30.5,63.5V36.5Z"
+        android:fillColor="#FFFFFF"/>
+    <!-- Inner hexagon cutout -->
+    <path
+        android:pathData="M54,35L68,43V57L54,65L40,57V43Z"
+        android:fillColor="#00000000"/>
+    <!-- Satellite hexagons -->
+    <path
+        android:pathData="M31,37.5L42,43.8V56.2L31,62.5L20,56.2V43.8Z"
+        android:fillColor="#FFFFFF"/>
+    <path
+        android:pathData="M77,37.5L88,43.8V56.2L77,62.5L66,56.2V43.8Z"
+        android:fillColor="#FFFFFF"/>
+  </group>
+</vector>
