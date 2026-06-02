@@ -13,6 +13,7 @@ class HabitatExecutor(
     private val executionMode: ExecutionMode = ExecutionMode.LIVE_RUN,
     private val executionController: ExecutionController? = null,
     private val trajectoryStore: TrajectoryStore? = null,
+    private val strictValidation: Boolean = true,
 ) {
     companion object { private const val TAG = "HabitatExecutor" }
 
@@ -31,9 +32,23 @@ class HabitatExecutor(
         graph: WorkflowGraph, workflowContext: WorkflowContext, onLog: ((String) -> Unit)? = null,
     ) {
         workflowContext.onLog = onLog
-        val nodes = graph.nodes
-        val startId = graph.startNodeId
-        if (nodes.isNullOrEmpty() || startId.isNullOrBlank()) {
+
+        val validation = WorkflowGraphValidator.validate(graph, factory.registeredTypes())
+        validation.warnings.forEach { issue ->
+            val nodePrefix = issue.nodeId?.let { "node '$it': " }.orEmpty()
+            workflowContext.log("Validation warning: $nodePrefix${issue.message}")
+        }
+        if (!validation.isValid) {
+            validation.errors.forEach { issue ->
+                val nodePrefix = issue.nodeId?.let { "node '$it': " }.orEmpty()
+                workflowContext.log("Validation error: $nodePrefix${issue.message}")
+            }
+            if (strictValidation) return
+        }
+
+        val nodes = graph.nodes.orEmpty()
+        val startId = graph.startNodeId?.trim()
+        if (nodes.isEmpty() || startId.isNullOrBlank()) {
             Log.w(TAG, "execute: invalid graph")
             workflowContext.log("Habitat: Invalid graph — missing nodes or start_node_id")
             return
@@ -49,11 +64,13 @@ class HabitatExecutor(
                 }
                 ExecutionMode.SHADOW_RUN -> {
                     val result = executionController.shadowRun(graph, workflowContext)
-                    workflowContext.log("Shadow-run: ${result.steps.size} steps predicted")
+                    workflowContext.log("Shadow-run: ${result.steps.size} steps predicted, failures=${result.predictedFailures.size}")
+                    if (!result.overallPredictedSuccess) return
                 }
                 ExecutionMode.SANDBOX_RUN -> {
                     val result = executionController.sandboxRun(graph, workflowContext)
                     workflowContext.log("Sandbox-run completed: $result")
+                    if (!result.passed) return
                 }
                 ExecutionMode.LIVE_RUN -> {} // proceed normally
             }
@@ -76,22 +93,31 @@ class HabitatExecutor(
 
         while (currentId != null && step < maxSteps) {
             coroutineContext.ensureActive()
-            val node = index[currentId]
+            val executingId = currentId
+            val node = index[executingId]
             if (node == null) {
-                Log.w(TAG, "step $step: node '$currentId' not found in graph")
-                workflowContext.log("Habitat: Missing node '$currentId'")
+                val message = "Missing node '$executingId'"
+                Log.w(TAG, "step $step: $message")
+                workflowContext.variables["_last_error"] = true
+                workflowContext.variables["_last_error_msg"] = message
+                workflowContext.log("Habitat: $message")
+                errorCount++
                 break
             }
 
-            val nodeType = node.type ?: "<null type>"
+            val nodeType = node.type?.trim().orEmpty()
             val rawHandler = factory.get(nodeType)
             if (rawHandler == null) {
-                Log.w(TAG, "step $step: node '$currentId' type '$nodeType' — no handler registered")
-                workflowContext.log("No handler for type '$nodeType' (node '$currentId'), skipping")
-                currentId = node.next; step++; continue
+                val message = "No handler registered for type '$nodeType' (node '$executingId')"
+                Log.e(TAG, "step $step: $message")
+                workflowContext.variables["_last_error"] = true
+                workflowContext.variables["_last_error_msg"] = message
+                workflowContext.log(message)
+                errorCount++
+                break
             }
 
-            Log.i(TAG, "step $step: [$currentId] $nodeType")
+            Log.i(TAG, "step $step: [$executingId] $nodeType")
             val startTime = System.currentTimeMillis()
 
             // Adapt handler: V2 → call handleV2 directly, V1 → wrap
@@ -100,9 +126,15 @@ class HabitatExecutor(
             val preSnapshot = workflowContext.snapshotVariables()
 
             val stepResult: StepOutcome = try {
+                workflowContext.variables["_last_error"] = false
+                workflowContext.variables["_last_error_msg"] = ""
                 val result = handlerV2.handleV2(node, workflowContext)
                 if (result.success) {
-                    StepOutcome.Continue(result.nextNodeId, result)
+                    val next = result.nextNodeId?.trim()?.takeIf { it.isNotEmpty() }
+                    if (next != null && !index.containsKey(next)) {
+                        throw IllegalStateException("Node '$executingId' returned missing next node '$next'")
+                    }
+                    StepOutcome.Continue(next, result)
                 } else {
                     workflowContext.variables["_last_error"] = true
                     workflowContext.variables["_last_error_msg"] = result.error ?: "Unknown error"
@@ -117,6 +149,11 @@ class HabitatExecutor(
                             workflowContext.log("→ Compensating with '${result.compensateAction.handlerType}'")
                             StepOutcome.Compensate(result.compensateAction, result)
                         }
+                        node.branches?.get("error") != null -> {
+                            val errorBranch = node.branches?.get("error")?.trim()?.takeIf { it.isNotEmpty() }
+                            workflowContext.log("→ Routing to error branch '$errorBranch'")
+                            StepOutcome.Continue(errorBranch, result)
+                        }
                         else -> {
                             errorCount++
                             StepOutcome.Stop(result.error ?: "Unknown error", result)
@@ -126,15 +163,18 @@ class HabitatExecutor(
             } catch (e: CancellationException) { throw e
             } catch (e: Exception) {
                 errorCount++
-                Log.e(TAG, "step $step: [$currentId] $nodeType FAILED: ${e.message}", e)
-                workflowContext.log("Error in '$nodeType': ${e.message}")
+                val message = e.message ?: e.javaClass.simpleName
+                Log.e(TAG, "step $step: [$executingId] $nodeType FAILED: $message", e)
+                workflowContext.log("Error in '$nodeType': $message")
                 workflowContext.variables["_last_error"] = true
-                workflowContext.variables["_last_error_msg"] = e.message ?: ""
-                StepOutcome.Stop(e.message ?: "Handler exception")
+                workflowContext.variables["_last_error_msg"] = message
+                val errorBranch = node.branches?.get("error")?.trim()?.takeIf { it.isNotEmpty() }
+                if (errorBranch != null) StepOutcome.Continue(errorBranch, NodeResult.failure(message))
+                else StepOutcome.Stop(message)
             }
 
             val elapsed = System.currentTimeMillis() - startTime
-            if (elapsed > 1000) { Log.i(TAG, "step $step: [$currentId] $nodeType took ${elapsed}ms (slow)") }
+            if (elapsed > 1000) { Log.i(TAG, "step $step: [$executingId] $nodeType took ${elapsed}ms (slow)") }
 
             // Record trajectory
             if (trajectoryStore != null) {
@@ -142,7 +182,7 @@ class HabitatExecutor(
                     ?: (stepResult as? StepOutcome.Stop)?.result
                 trajectoryStore.recordStep(TrajectoryStep(
                     runId = runId, stepIndex = step, taskDescription = node.description ?: nodeType,
-                    nodeId = currentId, nodeType = nodeType,
+                    nodeId = executingId, nodeType = nodeType,
                     actionParams = node.params ?: emptyMap(),
                     preScreenState = null, postScreenState = null,
                     variableDiff = workflowContext.diffSnapshot(preSnapshot),
@@ -161,7 +201,7 @@ class HabitatExecutor(
                     val compRaw = factory.get(stepResult.action.handlerType)
                     if (compRaw != null) {
                         val compNode = WorkflowNode().apply {
-                            id = "compensate_$currentId"; type = stepResult.action.handlerType
+                            id = "compensate_$executingId"; type = stepResult.action.handlerType
                             params = stepResult.action.params
                         }
                         try {
@@ -170,7 +210,9 @@ class HabitatExecutor(
                             } else {
                                 compRaw.handle(compNode, workflowContext)
                             }
-                        } catch (_: Exception) {}
+                        } catch (compError: Exception) {
+                            workflowContext.log("Compensation failed: ${compError.message}")
+                        }
                     }
                     null
                 }
@@ -181,6 +223,8 @@ class HabitatExecutor(
 
         if (step >= maxSteps) {
             Log.w(TAG, "=== Aborted after $maxSteps steps ===")
+            workflowContext.variables["_last_error"] = true
+            workflowContext.variables["_last_error_msg"] = "Step limit $maxSteps reached"
             workflowContext.log("Habitat: Aborted (step limit $maxSteps reached)")
         } else {
             Log.i(TAG, "=== Finished: $step steps, $errorCount errors ===")
