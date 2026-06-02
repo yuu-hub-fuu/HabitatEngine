@@ -18,23 +18,11 @@ class WorkflowGraph {
         return TriggerConfig(type, params)
     }
 
+    /**
+     * Compatibility entry point used by HabitatJson. Full runtime validation is
+     * performed by HabitatExecutor with the actual NodeHandlerFactory registry.
+     */
     fun validate() {
-        val nodeMap = nodes ?: throw IllegalArgumentException("缺少 'nodes' 字段")
-        if (nodeMap.isEmpty()) throw IllegalArgumentException("'nodes' 不能为空")
-
-        val startId = startNodeId
-            ?: throw IllegalArgumentException("缺少 'start_node_id' 字段")
-        if (startId !in nodeMap) {
-            throw IllegalArgumentException("start_node_id '$startId' 在 nodes 中不存在")
-        }
-
-        for ((key, node) in nodeMap) {
-            if (node.id.isNullOrBlank()) {
-                throw IllegalArgumentException("节点 '$key' 缺少 'id' 字段")
-            }
-            if (node.type.isNullOrBlank()) {
-                throw IllegalArgumentException("节点 '${node.id}' 缺少 'type' 字段")
-            }
-        }
+        WorkflowGraphValidator.validate(this).requireValid()
     }
 }
