@@ -20,7 +20,6 @@ import com.ailun.habitat.R
 import com.ailun.habitat.app.bridge.AppAccessibilityProvider
 import com.ailun.habitat.app.bridge.ShizukuShellExecutor
 import com.ailun.habitat.app.bridge.applyAppHandlers
-import com.ailun.habitat.app.HabitatLogger
 import kotlinx.coroutines.*
 
 /**
@@ -45,12 +44,8 @@ class HabitatFloatService : Service() {
         manager.onWorkflowSelected = { workflow ->
             runMountedWorkflow(workflow)
         }
-        manager.onWorkflowStop = { workflow ->
-            // 工作流停止已在manager中处理
-        }
-        manager.onDismiss = {
-            // 面板关闭时不需要额外处理
-        }
+        manager.onWorkflowStop = { _ -> }
+        manager.onDismiss = { }
         manager.showFloatWindow()
     }
 
@@ -61,13 +56,12 @@ class HabitatFloatService : Service() {
 
     override fun onDestroy() {
         HabitatLogger.d(TAG, "HabitatFloatService onDestroy")
+        isRunning = false
         FloatWindowManager.getInstanceOrNull()?.destroy()
         ioScope.cancel()
         mainScope.cancel()
         super.onDestroy()
     }
-
-    // ---------- 通知相关 ----------
 
     private fun ensureNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -92,15 +86,14 @@ class HabitatFloatService : Service() {
             } else {
                 startForeground(NOTIFICATION_ID, notification)
             }
-        } catch (t: Throwable) {
+        } catch (_: Throwable) {
             HabitatLogger.w(TAG, "startForeground failed")
         }
     }
 
     private fun createNotification(): Notification {
-        // 使用 packageManager 动态获取启动 Intent，避免硬编码 MainActivity
         val launchIntent = packageManager.getLaunchIntentForPackage(packageName)
-            ?: Intent() // fallback: empty intent
+            ?: Intent()
         val pending = PendingIntent.getActivity(
             this, 0, launchIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
@@ -114,8 +107,6 @@ class HabitatFloatService : Service() {
             .build()
     }
 
-    // ---------- 工作流执行 ----------
-
     private fun runMountedWorkflow(wf: HabitatWorkflow) {
         val factory = NodeHandlerFactory(AppAccessibilityProvider, ShizukuShellExecutor(applicationContext)).apply {
             applyAppHandlers(applicationContext)
@@ -123,11 +114,8 @@ class HabitatFloatService : Service() {
         val ok = HabitatExecutionService.start(wf.id, wf.jsonContent, applicationContext, factory) { log ->
             HabitatLogger.habitat(log)
         }
-        if (ok) {
-            HabitatLogger.d(TAG, "启动工作流: ${wf.name}")
-        } else {
-            HabitatLogger.d(TAG, "工作流已在运行: ${wf.name}")
-        }
+        if (ok) HabitatLogger.d(TAG, "启动工作流: ${wf.name}")
+        else HabitatLogger.d(TAG, "工作流已在运行: ${wf.name}")
     }
 
     companion object {
@@ -135,10 +123,18 @@ class HabitatFloatService : Service() {
         private const val NOTIFICATION_ID = 31042
         private const val CHANNEL_ID = "habitat_float_service"
 
-        fun start(context: Context) =
-            ContextCompat.startForegroundService(context, Intent(context, HabitatFloatService::class.java))
+        @Volatile
+        var isRunning: Boolean = false
+            private set
 
-        fun stop(context: Context) =
+        fun start(context: Context) {
+            isRunning = true
+            ContextCompat.startForegroundService(context, Intent(context, HabitatFloatService::class.java))
+        }
+
+        fun stop(context: Context) {
+            isRunning = false
             context.stopService(Intent(context, HabitatFloatService::class.java))
+        }
     }
 }
