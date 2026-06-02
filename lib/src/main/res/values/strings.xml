@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="habitat_float_notification_channel_name">Habitat 悬浮球</string>
+    <string name="habitat_float_notification_title">Habitat 悬浮球</string>
+    <string name="habitat_float_notification_text">点击悬浮按钮运行已挂载脚本</string>
+    <string name="habitat_float_ball_label">Run</string>
+    <string name="habitat_float_toast_no_mount">请先在 Habitat 列表中挂载工作流</string>
+    <string name="habitat_mount_started">已挂载并启动悬浮球</string>
+    <string name="habitat_float_unmounted">已取消悬浮球挂载</string>
+
+    <string name="habitat_notification_title_default">Habitat 通知</string>
+    <string name="habitat_notification_message_default">这是一条来自 Habitat 的消息。</string>
+    <string name="habitat_notification_channel">Habitat 通知</string>
+</resources>

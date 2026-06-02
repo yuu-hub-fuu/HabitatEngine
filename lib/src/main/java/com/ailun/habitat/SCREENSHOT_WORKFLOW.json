@@ -1,0 +1,27 @@
+{
+  "start_node_id": "s1",
+  "nodes": {
+    "s1": {
+      "id": "s1",
+      "type": "ACTION_SCREENSHOT",
+      "params": { "format": "base64", "output_var": "img" },
+      "next": "s2"
+    },
+    "s2": {
+      "id": "s2",
+      "type": "CONDITION_SWITCH",
+      "params": { "expression": "screenshot_success == true" },
+      "branches": { "true": "ok", "false": "fail" }
+    },
+    "ok": {
+      "id": "ok",
+      "type": "ACTION_TOAST",
+      "params": { "message": "截屏成功" }
+    },
+    "fail": {
+      "id": "fail",
+      "type": "ACTION_TOAST",
+      "params": { "message": "截屏失败，检查 Shizuku" }
+    }
+  }
+}

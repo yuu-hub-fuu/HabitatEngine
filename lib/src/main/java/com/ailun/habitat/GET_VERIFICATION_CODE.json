@@ -1,0 +1,50 @@
+{
+  "start_node_id": "read",
+  "nodes": {
+    "read": {
+      "id": "read",
+      "type": "ACTION_READ_SMS",
+      "params": {
+        "filter_by": "latest",
+        "extract_code": true,
+        "max_scan": 20
+      },
+      "next": "check"
+    },
+    "check": {
+      "id": "check",
+      "type": "CONDITION_SWITCH",
+      "params": { "expression": "sms_found == true" },
+      "branches": { "true": "copy", "false": "fail" }
+    },
+    "copy": {
+      "id": "copy",
+      "type": "ACTION_CLIPBOARD",
+      "params": {
+        "action": "set",
+        "text": "${verification_code}"
+      },
+      "next": "show_code"
+    },
+    "show_code": {
+      "id": "show_code",
+      "type": "ACTION_SET_VARIABLE",
+      "params": {
+        "name": "msg",
+        "value": "验证码: ${verification_code} 已复制到剪贴板",
+        "type": "string"
+      },
+      "next": "toast_ok"
+    },
+    "toast_ok": {
+      "id": "toast_ok",
+      "type": "ACTION_TOAST",
+      "params": { "message": "${msg}" }
+    },
+    "fail": {
+      "id": "fail",
+      "type": "ACTION_TOAST",
+      "params": { "message": "未找到验证码短信" }
+    }
+  }
+}

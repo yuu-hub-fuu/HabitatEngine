@@ -1,0 +1,53 @@
+package com.ailun.habitat.handlers
+
+import com.ailun.habitat.INodeHandler
+import com.ailun.habitat.WorkflowContext
+import com.ailun.habitat.WorkflowNode
+
+/**
+ * [ACTION_TEXT_OPERATION]：文本操作。
+ * params：`action`/`operation` (replace/substring/split/uppercase/lowercase/trim/append/prepend),
+ * `input`/`source_var` — 输入文本或变量名,
+ * `old`/`search`, `new`/`replace_with` — 替换参数,
+ * `output_var` — 输出变量名
+ */
+class NodeTextOperationHandler : INodeHandler {
+    override suspend fun handle(node: WorkflowNode, context: WorkflowContext): String? {
+        val params = node.params ?: return node.next
+
+        val op = (params["action"]?.toString() ?: params["operation"]?.toString())
+            ?.trim()?.lowercase() ?: return node.next
+
+        val inputKey = (params["input"]?.toString() ?: params["source_var"]?.toString())?.trim().orEmpty()
+        val sourceValue = context.getVariable(inputKey)?.toString() ?: inputKey
+        val outputVar = params["output_var"]?.toString()?.trim()?.ifEmpty { null } ?: "text_output"
+
+        val result = when (op) {
+            "replace" -> {
+                val old = (params["old"]?.toString() ?: params["search"]?.toString()).orEmpty()
+                val new = (params["new"]?.toString() ?: params["replace_with"]?.toString()).orEmpty()
+                sourceValue.replace(old, new)
+            }
+            "substring" -> {
+                val start = (params["start"] as? Number)?.toInt() ?: 0
+                val end = (params["end"] as? Number)?.toInt() ?: sourceValue.length
+                sourceValue.substring(maxOf(0, start).coerceAtMost(sourceValue.length),
+                    end.coerceAtMost(sourceValue.length))
+            }
+            "split" -> {
+                val delimiter = params["delimiter"]?.toString() ?: ","
+                sourceValue.split(delimiter).joinToString("\n")
+            }
+            "uppercase" -> sourceValue.uppercase()
+            "lowercase" -> sourceValue.lowercase()
+            "trim" -> sourceValue.trim()
+            "append" -> sourceValue + (params["text"]?.toString().orEmpty())
+            "prepend" -> (params["text"]?.toString().orEmpty()) + sourceValue
+            else -> sourceValue
+        }
+
+        context.putVariable(outputVar, result)
+        context.log("TextOp $op '$inputKey' → '$result' (→ $outputVar)")
+        return node.next
+    }
+}

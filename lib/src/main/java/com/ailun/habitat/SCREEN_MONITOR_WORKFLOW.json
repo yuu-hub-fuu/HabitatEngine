@@ -1,0 +1,58 @@
+{
+  "start_node_id": "init",
+  "nodes": {
+    "init": {
+      "id": "init",
+      "type": "ACTION_SET_VARIABLE",
+      "params": { "name": "wechat_found", "value": false, "type": "bool" },
+      "next": "loop_check"
+    },
+    "loop_check": {
+      "id": "loop_check",
+      "type": "CONDITION_SWITCH",
+      "params": { "expression": "wechat_found == false" },
+      "branches": { "true": "read_screen", "false": "done" }
+    },
+    "read_screen": {
+      "id": "read_screen",
+      "type": "ACTION_READ_SCREEN",
+      "params": { "keyword": "微信" },
+      "next": "check_found"
+    },
+    "check_found": {
+      "id": "check_found",
+      "type": "CONDITION_SWITCH",
+      "params": { "expression": "screen_data == true" },
+      "branches": { "true": "click_wechat", "false": "wait_retry" }
+    },
+    "click_wechat": {
+      "id": "click_wechat",
+      "type": "ACTION_CLICK",
+      "params": { "target": "微信" },
+      "next": "mark_found"
+    },
+    "mark_found": {
+      "id": "mark_found",
+      "type": "ACTION_SET_VARIABLE",
+      "params": { "name": "wechat_found", "value": true, "type": "bool" },
+      "next": "notify"
+    },
+    "notify": {
+      "id": "notify",
+      "type": "ACTION_TOAST",
+      "params": { "message": "已点击微信" },
+      "next": "loop_check"
+    },
+    "wait_retry": {
+      "id": "wait_retry",
+      "type": "ACTION_DELAY",
+      "params": { "millis": 5000 },
+      "next": "loop_check"
+    },
+    "done": {
+      "id": "done",
+      "type": "ACTION_TOAST",
+      "params": { "message": "监控结束：已找到微信" }
+    }
+  }
+}

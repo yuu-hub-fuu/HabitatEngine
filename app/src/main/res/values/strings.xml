@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Habitat</string>
+    <string name="accessibility_service_description">Habitat 服务可以通过自动化流程执行多种任务。</string>
+    <string name="habitat_float_notification_channel_name">Habitat 悬浮球</string>
+    <string name="habitat_float_notification_title">Habitat 悬浮球</string>
+    <string name="habitat_float_notification_text">点击悬浮按钮运行已挂载脚本</string>
+    <string name="habitat_mount_started">已挂载并启动悬浮球</string>
+    <string name="habitat_float_unmounted">已取消悬浮球挂载</string>
+</resources>
