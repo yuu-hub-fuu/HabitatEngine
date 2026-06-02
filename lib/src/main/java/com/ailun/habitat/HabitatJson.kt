@@ -1,11 +1,15 @@
 package com.ailun.habitat
 
 import com.google.gson.GsonBuilder
-import com.google.gson.JsonElement
-import com.google.gson.JsonPrimitive
 import com.google.gson.TypeAdapter
 import com.google.gson.stream.JsonReader
 import com.google.gson.stream.JsonWriter
+import com.ailun.habitat.graph.GraphVerifier
+import com.ailun.habitat.graph.GraphVerifyResult
+import com.ailun.habitat.planir.CompilationResult
+import com.ailun.habitat.planir.PlanIR
+import com.ailun.habitat.planir.PlanIRCompiler
+import com.ailun.habitat.planir.PlanIRValidator
 
 object HabitatJson {
 
@@ -109,7 +113,63 @@ object HabitatJson {
         }
     }
 
-    fun fromJson(json: String): WorkflowGraph {
+    /**
+     * Parse a flat JSON workflow string into a [WorkflowGraph].
+     * Performs fast structural validation only. For comprehensive static analysis,
+     * pass a [GraphVerifier] or call [verify] separately.
+     *
+     * @param json The JSON string to parse.
+     * @param verifier Optional [GraphVerifier] for comprehensive static analysis.
+     *                 When null, only structural validation is performed.
+     * @return Parsed and validated [WorkflowGraph].
+     * @throws IllegalArgumentException if parsing or validation fails.
+     */
+    @JvmOverloads
+    fun fromJson(json: String, verifier: GraphVerifier? = null): WorkflowGraph {
+        return parseAndValidate(json, verifier)
+    }
+
+    /**
+     * Parse a PlanIR JSON string into a [WorkflowGraph].
+     * PlanIR is compiled through PlanIRCompiler which validates the plan,
+     * auto-inserts confirmation nodes, and generates error handling.
+     *
+     * @param planirJson The PlanIR JSON string.
+     * @param compiler The PlanIRCompiler instance.
+     * @param validator The PlanIRValidator instance (optional).
+     * @return The compiled flat WorkflowGraph.
+     * @throws IllegalArgumentException if PlanIR validation or compilation fails.
+     */
+    fun fromPlanIR(
+        planirJson: String,
+        compiler: PlanIRCompiler,
+        validator: PlanIRValidator? = null,
+    ): CompilationResult {
+        val planir = gson.fromJson(planirJson, PlanIR::class.java)
+
+        if (validator != null) {
+            val validation = validator.validate(planir)
+            if (!validation.isValid) {
+                throw IllegalArgumentException(
+                    "PlanIR validation failed:\n${validation.errors.joinToString("\n")}"
+                )
+            }
+        }
+
+        return compiler.compile(planir)
+    }
+
+    /**
+     * Static verification of an already-parsed graph.
+     * Useful for re-verifying a graph after programmatic modifications.
+     */
+    fun verify(graph: WorkflowGraph, verifier: GraphVerifier): GraphVerifyResult {
+        return verifier.verify(graph)
+    }
+
+    // ──────── Internal ────────
+
+    private fun parseAndValidate(json: String, verifier: GraphVerifier?): WorkflowGraph {
         val trimmed = json.trim()
         if (!trimmed.startsWith("{")) {
             throw IllegalArgumentException("JSON 必须是一个对象（以 { 开头），当前以 '${trimmed.take(10)}' 开头")
@@ -145,7 +205,20 @@ object HabitatJson {
                 e,
             )
         }
+
+        // Fast structural validation (always run)
         graph.validate()
+
+        // Comprehensive static analysis (optional)
+        if (verifier != null) {
+            val result = verifier.verify(graph)
+            if (!result.isValid) {
+                throw IllegalArgumentException(
+                    "Graph verification failed:\n${result.summary}"
+                )
+            }
+        }
+
         return graph
     }
 }

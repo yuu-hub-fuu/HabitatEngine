@@ -2,6 +2,7 @@ package com.ailun.habitat
 
 import android.content.Context
 import android.util.Log
+import com.ailun.habitat.execution.DiffEntry
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
@@ -64,5 +65,35 @@ class WorkflowContext(
         val taggedMessage = "[$shortId] $message"
         Log.i("Habitat", taggedMessage)
         onLog?.invoke(taggedMessage)
+    }
+
+    /**
+     * Take a snapshot of all current variable values. Used for diff tracking
+     * before/after node execution (for trajectory recording).
+     */
+    fun snapshotVariables(): Map<String, Any?> = HashMap(variables)
+
+    /**
+     * Compute the diff between a previous snapshot and the current state.
+     * Returns entries that were added, removed, or changed.
+     */
+    fun diffSnapshot(before: Map<String, Any?>): Map<String, DiffEntry> {
+        val diffs = mutableMapOf<String, DiffEntry>()
+        val after = variables
+
+        for ((k, v) in after) {
+            val beforeVal = before[k]
+            if (beforeVal != v || k !in before) {
+                diffs[k] = DiffEntry(beforeVal, v)
+            }
+        }
+
+        for (k in before.keys) {
+            if (k !in after) {
+                diffs[k] = DiffEntry(before[k], null)
+            }
+        }
+
+        return diffs
     }
 }

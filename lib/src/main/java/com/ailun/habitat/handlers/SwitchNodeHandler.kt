@@ -3,13 +3,20 @@ package com.ailun.habitat.handlers
 import com.ailun.habitat.INodeHandler
 import com.ailun.habitat.WorkflowContext
 import com.ailun.habitat.WorkflowNode
-import java.util.Calendar
+import com.ailun.habitat.expression.ExpressionEngine
+import com.ailun.habitat.expression.IVariableProvider
 
 /**
  * [CONDITION_SWITCH]：根据 `expression` 选择 [WorkflowNode.branches]。
  * 支持内置表达式及通用的 `var_name == value` 格式。
+ *
+ * When [engine] is non-null, delegates to the unified ExpressionEngine for
+ * full operator support and detailed explanation output.
+ * When null, falls back to legacy string-splitting evaluation (backward compat).
  */
-class SwitchNodeHandler : INodeHandler {
+class SwitchNodeHandler(
+    private val engine: ExpressionEngine? = null,
+) : INodeHandler {
     override suspend fun handle(node: WorkflowNode, context: WorkflowContext): String? {
         val expr = node.params?.get("expression")?.toString()?.trim().orEmpty()
         val result = evaluate(expr, context)
@@ -17,13 +24,25 @@ class SwitchNodeHandler : INodeHandler {
         return node.branches?.get(if (result) "true" else "false")
     }
 
-    @Suppress("IfThenToElvis")
     private fun evaluate(expr: String, ctx: WorkflowContext): Boolean {
         if (expr.isEmpty()) return false
 
+        // Use unified engine when available — produces detailed explanation log
+        if (engine != null) {
+            val provider = object : IVariableProvider {
+                override fun getVariable(key: String): Any? = ctx.getVariable(key)
+            }
+            val result = engine.evaluate(expr, provider)
+            // Log the engine's explanation for debugging
+            ctx.log("  ExpressionEngine: ${result.explanation}")
+            return result.booleanResult
+        }
+
+        // ── Legacy fallback (preserved for backward compatibility) ──
+
         // 内置表达式
         if (expr == "is_daytime == true" || expr == "is_daytime==true") {
-            val h = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
+            val h = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
             return h in 8..17
         }
 

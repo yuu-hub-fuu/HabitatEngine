@@ -2,21 +2,31 @@ package com.ailun.habitat
 
 import com.ailun.habitat.api.IAccessibilityProvider
 import com.ailun.habitat.api.IShellExecutor
+import com.ailun.habitat.confirmation.ConfirmationManager
+import com.ailun.habitat.expression.ExpressionEngine
 import com.ailun.habitat.handlers.*
 
 class NodeHandlerFactory(
     private val a11y: IAccessibilityProvider? = null,
     private val shell: IShellExecutor? = null,
+    confirmationManager: ConfirmationManager? = null,
 ) {
 
     private val registry = mutableMapOf<String, INodeHandler>()
 
+    /** Shared expression engine used by switch and loop handlers. */
+    val expressionEngine = ExpressionEngine()
+
+    /** Confirmation manager for ACTION_CONFIRM. Can be set after construction. */
+    var confirmationManager: ConfirmationManager? = confirmationManager
+        private set
+
     init {
         // ── 逻辑控制 ──
-        register(CONDITION_SWITCH, SwitchNodeHandler())
-        register(CONDITION_ADVANCED_SWITCH, NodeAdvancedSwitchHandler())
+        register(CONDITION_SWITCH, SwitchNodeHandler(expressionEngine))
+        register(CONDITION_ADVANCED_SWITCH, NodeAdvancedSwitchHandler(expressionEngine))
         register(ACTION_DELAY, NodeDelayHandler())
-        register(ACTION_LOOP, NodeLoopHandler())
+        register(ACTION_LOOP, NodeLoopHandler(expressionEngine))
         register(ACTION_TRY_CATCH, NodeTryCatchHandler())
         register(ACTION_LOG, NodeLogHandler())
 
@@ -73,6 +83,13 @@ class NodeHandlerFactory(
         // ── UI ──
         register(ACTION_TOAST, ToastNodeHandler())
         register(ACTION_VIBRATE, VibrateNodeHandler())
+
+        // ── 安全 ──
+        register(ACTION_CONFIRM, NodeConfirmHandler(confirmationManager))
+
+        // ── 技能 ──
+        register(ACTION_CALL_SKILL, NodeCallSkillHandler())
+
         // ── AI ──
         register(ACTION_AI_CHAT, NodeLLMHandler(llmService = null))
     }
@@ -127,6 +144,8 @@ class NodeHandlerFactory(
         const val ACTION_VIBRATE = "ACTION_VIBRATE"
         const val ACTION_SEND_NOTIFICATION = "ACTION_SEND_NOTIFICATION"
         const val ACTION_DYNAMIC_ISLAND = "ACTION_DYNAMIC_ISLAND"
+        const val ACTION_CONFIRM = "ACTION_CONFIRM"
         const val ACTION_AI_CHAT = "ACTION_AI_CHAT"
+        const val ACTION_CALL_SKILL = "ACTION_CALL_SKILL"
     }
 }

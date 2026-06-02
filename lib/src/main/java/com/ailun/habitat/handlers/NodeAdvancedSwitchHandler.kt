@@ -3,12 +3,23 @@ package com.ailun.habitat.handlers
 import com.ailun.habitat.INodeHandler
 import com.ailun.habitat.WorkflowContext
 import com.ailun.habitat.WorkflowNode
-import java.util.Calendar
+import com.ailun.habitat.expression.ExpressionEngine
+import com.ailun.habitat.expression.IVariableProvider
 
 /**
  * [CONDITION_ADVANCED_SWITCH]：高级条件判断。
+ *
+ * Supports two param formats:
+ * 1. expression: "sum > 15" (compact)
+ * 2. var + operator + value: var="sum", operator=">", value="15" (split)
+ *
+ * When [engine] is non-null, delegates to the unified ExpressionEngine for
+ * full operator support (including matches, in, is_null, &&, ||, !).
+ * When null, falls back to legacy evaluation (backward compat).
  */
-class NodeAdvancedSwitchHandler : INodeHandler {
+class NodeAdvancedSwitchHandler(
+    private val engine: ExpressionEngine? = null,
+) : INodeHandler {
     override suspend fun handle(node: WorkflowNode, context: WorkflowContext): String? {
         // Support two formats:
         // 1. expression: "sum > 15" (compact)
@@ -20,7 +31,7 @@ class NodeAdvancedSwitchHandler : INodeHandler {
         val key = if (result) "true" else "false"
         val nextNode = node.branches?.get(key)
 
-        context.log("决策: 表达式 '$expr' -> 结果: $result -> 下一节点: $nextNode")
+        context.log("决策: 表达式 '$expr' → 结果: $result → 下一节点: $nextNode")
         return nextNode
     }
 
@@ -32,17 +43,28 @@ class NodeAdvancedSwitchHandler : INodeHandler {
             "$varName $operator $value"
         } else ""
     }
-    
+
     private fun evaluate(expr: String, context: WorkflowContext): Boolean {
         if (expr.isBlank()) return false
 
+        // Use unified engine when available
+        if (engine != null) {
+            val provider = object : IVariableProvider {
+                override fun getVariable(key: String): Any? = context.getVariable(key)
+            }
+            val result = engine.evaluate(expr, provider)
+            context.log("  ExpressionEngine: ${result.explanation}")
+            return result.booleanResult
+        }
+
+        // ── Legacy fallback ──
         return when {
             expr == "is_daytime" -> {
-                val h = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
+                val h = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
                 h in 8..17
             }
             expr == "is_nighttime" -> {
-                val h = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
+                val h = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
                 h !in 8..17
             }
             // Check multi-char operators FIRST to avoid partial matches (> matching >= etc.)
@@ -62,6 +84,8 @@ class NodeAdvancedSwitchHandler : INodeHandler {
         }
     }
 
+    // ── Legacy evaluation methods (preserved for backward compat) ──
+
     private fun evaluateStringOp(expr: String, context: WorkflowContext, op: String): Boolean {
         val parts = expr.split(" $op ", limit = 2)
         if (parts.size != 2) return false
@@ -76,53 +100,40 @@ class NodeAdvancedSwitchHandler : INodeHandler {
             else -> false
         }
     }
-    
+
     private fun evaluateComparison(expr: String, context: WorkflowContext, op: String): Boolean {
         val parts = expr.split(op, limit = 2)
         if (parts.size != 2) return false
-        
         val left = parts[0].trim()
         val right = parts[1].trim()
-        
-        // 尝试获取变量值，如果没有则取字面量
         val leftRaw = context.getVariable(left)
         val leftValue = leftRaw?.toString() ?: left
-        
         val rightRaw = context.getVariable(right)
         val rightValue = rightRaw?.toString() ?: right
-        
         val result = when (op) {
             "==" -> leftValue == rightValue
             "!=" -> leftValue != rightValue
             else -> false
         }
-        
-        // 只有在变量存在时打印详细对比，方便排查
         if (leftRaw != null || rightRaw != null) {
             context.log("  比较: '$leftValue' $op '$rightValue'")
         }
-        
         return result
     }
-    
+
     private fun evaluateNumericComparison(expr: String, context: WorkflowContext, op: String): Boolean {
         val parts = expr.split(op, limit = 2)
         if (parts.size != 2) return false
-        
         val left = parts[0].trim()
         val right = parts[1].trim()
-        
         val leftNum = (context.getVariable(left) as? Number)?.toDouble()
             ?: left.toDoubleOrNull()
-        
         val rightNum = (context.getVariable(right) as? Number)?.toDouble()
             ?: right.toDoubleOrNull()
-            
         if (leftNum == null || rightNum == null) {
             context.log("  比较失败: 操作数不是数字 (left=$leftNum, right=$rightNum)")
             return false
         }
-        
         return when (op) {
             ">" -> leftNum > rightNum
             "<" -> leftNum < rightNum

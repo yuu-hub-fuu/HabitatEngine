@@ -3,6 +3,8 @@ package com.ailun.habitat.handlers
 import com.ailun.habitat.INodeHandler
 import com.ailun.habitat.WorkflowContext
 import com.ailun.habitat.WorkflowNode
+import com.ailun.habitat.expression.ExpressionEngine
+import com.ailun.habitat.expression.IVariableProvider
 
 /**
  * [ACTION_LOOP]：简单循环控制（计数或条件）。
@@ -14,30 +16,17 @@ import com.ailun.habitat.WorkflowNode
  * - `body_node`：循环体起始节点 ID
  * - `next`：循环结束后的下一节点 ID
  *
- * 示例（计数循环）：
- * ```json
- * {
- *   "id": "loop1",
- *   "type": "ACTION_LOOP",
- *   "params": {
- *     "mode": "count",
- *     "times": 3,
- *     "counter_var": "i",
- *     "body_node": "body_start"
- *   },
- *   "next": "after_loop"
- * }
- * ```
- * 
- * 注意：body_node 应该在图中形成一个闭包路径回到该循环节点。
- * 简化方案：由调用者在工作流 JSON 中手动管理回跳。
- * 该 Handler 仅负责递增计数器和条件检查。
+ * When [engine] is non-null, while-loop conditions are evaluated through
+ * the unified ExpressionEngine, supporting full operator set (==, !=, >, <, etc.).
+ * When null, falls back to legacy ==/!= only (backward compat).
  */
-class NodeLoopHandler : INodeHandler {
+class NodeLoopHandler(
+    private val engine: ExpressionEngine? = null,
+) : INodeHandler {
     override suspend fun handle(node: WorkflowNode, context: WorkflowContext): String? {
         val params = node.params ?: return node.next
         val mode = params["mode"]?.toString()?.trim()?.lowercase() ?: "count"
-        
+
         val result = when (mode) {
             "count" -> handleCountLoop(node, context)
             "while" -> handleWhileLoop(node, context)
@@ -46,14 +35,14 @@ class NodeLoopHandler : INodeHandler {
         context.log("Loop mode=$mode → next=$result")
         return result
     }
-    
+
     private fun handleCountLoop(node: WorkflowNode, context: WorkflowContext): String? {
         val params = node.params ?: return node.next
         val times = (params["times"] as? Number)?.toInt() ?: 1
         val counterVar = params["counter_var"]?.toString()?.trim() ?: "loop_index"
-        
+
         val currentCount = (context.getVariable(counterVar) as? Number)?.toInt() ?: 0
-        
+
         return if (currentCount < times) {
             context.putVariable(counterVar, currentCount + 1)
             params["body_node"]?.toString() // 进入循环体
@@ -62,20 +51,20 @@ class NodeLoopHandler : INodeHandler {
             node.next // 跳出循环
         }
     }
-    
+
     private fun handleWhileLoop(node: WorkflowNode, context: WorkflowContext): String? {
         val params = node.params ?: return node.next
         val conditionExpr = params["condition_expr"]?.toString()?.trim().orEmpty()
         val maxIterations = (params["max_iterations"] as? Number)?.toInt() ?: 100
-        
+
         val iterVar = "_while_iter_count_"
         val iterCount = (context.getVariable(iterVar) as? Number)?.toInt() ?: 0
-        
+
         if (iterCount >= maxIterations) {
             context.putVariable(iterVar, 0)
             return node.next // 达到迭代上限，跳出
         }
-        
+
         val conditionTrue = evaluateCondition(conditionExpr, context)
         return if (conditionTrue) {
             context.putVariable(iterVar, iterCount + 1)
@@ -85,9 +74,21 @@ class NodeLoopHandler : INodeHandler {
             node.next // 条件为假，跳出
         }
     }
-    
+
     private fun evaluateCondition(expr: String, context: WorkflowContext): Boolean {
-        // 简单表达式求值：支持 "var_name == value" 或 "var_name != value"
+        if (expr.isEmpty()) return false
+
+        // Use unified engine when available
+        if (engine != null) {
+            val provider = object : IVariableProvider {
+                override fun getVariable(key: String): Any? = context.getVariable(key)
+            }
+            val result = engine.evaluate(expr, provider)
+            context.log("  ExpressionEngine: ${result.explanation}")
+            return result.booleanResult
+        }
+
+        // ── Legacy fallback: only == and != ──
         return when {
             expr.contains("==") -> {
                 val parts = expr.split("==")

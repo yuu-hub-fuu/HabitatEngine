@@ -1,7 +1,17 @@
 package com.ailun.habitat
 
+import com.google.gson.annotations.SerializedName
+
 /**
  * 邻接表中的一条节点记录（Gson 友好可变模型）。
+ *
+ * Fields added in v2 (all nullable, backward compatible):
+ * - [postCondition]: per-node success condition (Phase 2)
+ * - [guards]: guard conditions that must pass before executing this node (Phase 2)
+ * - [rollbackNodeId]: node to jump to on failure (Phase 4)
+ * - [compensateAction]: compensating action on failure (Phase 4)
+ * - [requireConfirmation]: auto-insert confirmation gate (Phase 1-2)
+ * - [capabilities]: declared required capabilities (Phase 1)
  */
 class WorkflowNode {
     var id: String? = null
@@ -15,4 +25,28 @@ class WorkflowNode {
 
     var label: String? = null
     var description: String? = null
+
+    // ── v2 fields (all nullable for backward compat) ──
+
+    /** Per-node success condition. Evaluated by SuccessEvaluator after execution. */
+    @SerializedName("post_condition")
+    var postCondition: Map<String, Any>? = null
+
+    /** Guard conditions that must be satisfied before this node executes. */
+    var guards: List<Map<String, Any>>? = null
+
+    /** Node ID to which execution rolls back on failure. */
+    @SerializedName("rollback_node_id")
+    var rollbackNodeId: String? = null
+
+    /** Description of compensating action to undo side effects on failure. */
+    @SerializedName("compensate_action")
+    var compensateAction: Map<String, Any>? = null
+
+    /** If true, compiler auto-inserts ACTION_CONFIRM before this node. */
+    @SerializedName("require_confirmation")
+    var requireConfirmation: Boolean = false
+
+    /** Declared capabilities required by this node (for capability tokens). */
+    var capabilities: List<String>? = null
 }

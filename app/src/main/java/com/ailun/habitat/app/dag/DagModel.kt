@@ -19,14 +19,20 @@ data class DagNode(
     val categoryId: String,
     val isTrigger: Boolean = false,
     var x: Float = 0f,
-    var y: Float = 0f
+    var y: Float = 0f,
+    // ── Debugger overlay fields (Phase 6) ──
+    var isExecuting: Boolean = false,
+    var hasError: Boolean = false,
+    var riskLevel: String? = null,       // LOW, MEDIUM, HIGH, CRITICAL
 )
 
 data class DagEdge(
     val fromNodeId: String,
     val toNodeId: String,
     val type: DagEdgeType,
-    val label: String = ""
+    val label: String = "",
+    // ── Debugger overlay fields ──
+    val edgeReason: String? = null,      // Why this edge was taken (expression result)
 )
 
 data class DagGraph(
