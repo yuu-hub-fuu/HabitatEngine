@@ -1,5 +1,6 @@
 package com.ailun.habitat
 
+import com.ailun.habitat.ai.ILLMService
 import com.ailun.habitat.api.IAccessibilityProvider
 import com.ailun.habitat.api.IShellExecutor
 import com.ailun.habitat.handlers.*
@@ -7,6 +8,7 @@ import com.ailun.habitat.handlers.*
 class NodeHandlerFactory(
     private val a11y: IAccessibilityProvider? = null,
     private val shell: IShellExecutor? = null,
+    private val llmService: ILLMService? = null,
 ) {
 
     private val registry = mutableMapOf<String, INodeHandler>()
@@ -74,11 +76,12 @@ class NodeHandlerFactory(
         register(ACTION_TOAST, ToastNodeHandler())
         register(ACTION_VIBRATE, VibrateNodeHandler())
         // ── AI ──
-        register(ACTION_AI_CHAT, NodeLLMHandler(llmService = null))
+        register(ACTION_AI_CHAT, NodeLLMHandler(llmService = llmService))
     }
 
     fun register(type: String, handler: INodeHandler) { registry[type] = handler }
     fun get(type: String?): INodeHandler? = type?.let { registry[it] }
+    fun registeredTypes(): Set<String> = registry.keys.toSet()
 
     companion object {
         const val CONDITION_SWITCH = "CONDITION_SWITCH"
