@@ -4,11 +4,11 @@ import android.content.Context
 import android.util.Log
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.joinAll
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -21,6 +21,7 @@ object HabitatExecutionService {
 
     private val execScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val activeJobs = ConcurrentHashMap<String, Job>()
+    private val startLock = Any()
 
     /** 检查指定工作流是否正在运行 */
     fun isRunning(workflowId: String): Boolean = activeJobs[workflowId]?.isActive == true
@@ -39,16 +40,16 @@ object HabitatExecutionService {
         factory: NodeHandlerFactory,
         initialVars: Map<String, Any>? = null,
         onLog: ((String) -> Unit)? = null,
-    ): Boolean {
+    ): Boolean = synchronized(startLock) {
         if (isRunning(workflowId)) {
             Log.w(TAG, "Workflow '$workflowId' already running — skip duplicate start")
             onLog?.invoke("Workflow '$workflowId' already running; duplicate start skipped")
-            return false
+            return@synchronized false
         }
 
         HabitatStateStore.setRunning(workflowId, true)
 
-        val job = execScope.launch {
+        val job = execScope.launch(start = CoroutineStart.LAZY) {
             try {
                 Log.i(TAG, "=== Start workflow '$workflowId' ===")
                 val graph = HabitatJson.fromJson(jsonContent)
@@ -70,13 +71,9 @@ object HabitatExecutionService {
             }
         }
 
-        val previous = activeJobs.putIfAbsent(workflowId, job)
-        if (previous != null && previous.isActive) {
-            job.cancel()
-            onLog?.invoke("Workflow '$workflowId' already running; duplicate start skipped")
-            return false
-        }
-        return true
+        activeJobs[workflowId] = job
+        job.start()
+        true
     }
 
     /** 停止工作流执行 */
