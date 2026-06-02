@@ -2,7 +2,14 @@ package com.ailun.habitat
 
 import android.content.Context
 import android.util.Log
-import kotlinx.coroutines.*
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.joinAll
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * 统一的工作流执行服务 — 悬浮窗和应用界面通过此单例触发任务，
@@ -13,11 +20,10 @@ object HabitatExecutionService {
     private const val TAG = "HabitatExecutionSvc"
 
     private val execScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-    private val activeJobs = mutableMapOf<String, Job>()
+    private val activeJobs = ConcurrentHashMap<String, Job>()
 
     /** 检查指定工作流是否正在运行 */
-    fun isRunning(workflowId: String): Boolean =
-        activeJobs.containsKey(workflowId) && activeJobs[workflowId]?.isActive == true
+    fun isRunning(workflowId: String): Boolean = activeJobs[workflowId]?.isActive == true
 
     /** 所有正在运行的工作流 ID */
     fun activeWorkflowIds(): Set<String> = activeJobs.keys.toSet()
@@ -36,6 +42,7 @@ object HabitatExecutionService {
     ): Boolean {
         if (isRunning(workflowId)) {
             Log.w(TAG, "Workflow '$workflowId' already running — skip duplicate start")
+            onLog?.invoke("Workflow '$workflowId' already running; duplicate start skipped")
             return false
         }
 
@@ -51,11 +58,11 @@ object HabitatExecutionService {
                 executor.execute(graph, ctx, onLog).join()
             } catch (_: CancellationException) {
                 Log.i(TAG, "Workflow '$workflowId' cancelled")
+                onLog?.invoke("Workflow '$workflowId' cancelled")
             } catch (e: Exception) {
-                Log.e(TAG, "Workflow '$workflowId' error: ${e.message}", e)
-                HabitatStateStore.setRunning(workflowId, false)
-                activeJobs.remove(workflowId)
-                throw e
+                val message = e.message ?: e.javaClass.simpleName
+                Log.e(TAG, "Workflow '$workflowId' error: $message", e)
+                onLog?.invoke("Workflow '$workflowId' failed: $message")
             } finally {
                 Log.i(TAG, "=== End workflow '$workflowId' ===")
                 HabitatStateStore.setRunning(workflowId, false)
@@ -63,15 +70,19 @@ object HabitatExecutionService {
             }
         }
 
-        activeJobs[workflowId] = job
+        val previous = activeJobs.putIfAbsent(workflowId, job)
+        if (previous != null && previous.isActive) {
+            job.cancel()
+            onLog?.invoke("Workflow '$workflowId' already running; duplicate start skipped")
+            return false
+        }
         return true
     }
 
     /** 停止工作流执行 */
     fun stop(workflowId: String) {
-        val job = activeJobs[workflowId]
+        val job = activeJobs.remove(workflowId)
         job?.cancel()
-        activeJobs.remove(workflowId)
         HabitatStateStore.setRunning(workflowId, false)
         Log.i(TAG, "Workflow '$workflowId' stopped")
     }
