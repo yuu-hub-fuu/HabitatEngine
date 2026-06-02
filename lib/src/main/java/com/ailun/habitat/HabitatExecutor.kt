@@ -13,6 +13,7 @@ import kotlin.coroutines.coroutineContext
 class HabitatExecutor(
     private val factory: NodeHandlerFactory,
     private val maxSteps: Int = 1000,
+    private val strictValidation: Boolean = true,
 ) {
 
     companion object {
@@ -47,10 +48,23 @@ class HabitatExecutor(
     ) {
         workflowContext.onLog = onLog
 
-        val nodes = graph.nodes
-        val startId = graph.startNodeId
-        if (nodes.isNullOrEmpty() || startId.isNullOrBlank()) {
-            Log.w(TAG, "execute: invalid graph (nodes=${nodes?.size}, startId=$startId)")
+        val validation = WorkflowGraphValidator.validate(graph, factory.registeredTypes())
+        validation.warnings.forEach { issue ->
+            val nodePrefix = issue.nodeId?.let { "node '$it': " }.orEmpty()
+            workflowContext.log("⚠ Validation warning: $nodePrefix${issue.message}")
+        }
+        if (!validation.isValid) {
+            validation.errors.forEach { issue ->
+                val nodePrefix = issue.nodeId?.let { "node '$it': " }.orEmpty()
+                workflowContext.log("✗ Validation error: $nodePrefix${issue.message}")
+            }
+            if (strictValidation) return
+        }
+
+        val nodes = graph.nodes.orEmpty()
+        val startId = graph.startNodeId?.trim()
+        if (nodes.isEmpty() || startId.isNullOrBlank()) {
+            Log.w(TAG, "execute: invalid graph (nodes=${nodes.size}, startId=$startId)")
             workflowContext.log("Habitat: Invalid graph — missing nodes or start_node_id")
             return
         }
@@ -65,39 +79,56 @@ class HabitatExecutor(
 
         while (currentId != null && step < maxSteps) {
             coroutineContext.ensureActive()
-            val node = index[currentId]
+            val executingId = currentId
+            val node = index[executingId]
             if (node == null) {
-                Log.w(TAG, "step $step: node '$currentId' not found in graph")
-                workflowContext.log("Habitat: Missing node '$currentId'")
+                Log.w(TAG, "step $step: node '$executingId' not found in graph")
+                workflowContext.putVariable("_last_error", true)
+                workflowContext.putVariable("_last_error_msg", "Missing node '$executingId'")
+                workflowContext.log("Habitat: Missing node '$executingId'")
+                errorCount++
                 break
             }
 
-            val nodeType = node.type ?: "<null type>"
+            val nodeType = node.type?.trim().orEmpty()
             val handler = factory.get(nodeType)
-
             if (handler == null) {
-                Log.w(TAG, "step $step: node '$currentId' type '$nodeType' — no handler registered, skipping to next=${node.next}")
-                workflowContext.log("⚠ No handler for type '$nodeType' (node '$currentId'), skipping")
-                currentId = node.next
-                step++
-                continue
+                errorCount++
+                val message = "No handler registered for type '$nodeType' (node '$executingId')"
+                Log.e(TAG, "step $step: $message")
+                workflowContext.putVariable("_last_error", true)
+                workflowContext.putVariable("_last_error_msg", message)
+                workflowContext.log("✗ $message")
+                break
             }
 
-            Log.i(TAG, "step $step: [$currentId] $nodeType")
+            Log.i(TAG, "step $step: [$executingId] $nodeType")
             val startTime = System.currentTimeMillis()
 
             try {
-                currentId = handler.handle(node, workflowContext)
+                workflowContext.putVariable("_last_error", false)
+                workflowContext.putVariable("_last_error_msg", "")
+                val nextId = handler.handle(node, workflowContext)?.trim()?.takeIf { it.isNotEmpty() }
+                if (nextId != null && !index.containsKey(nextId)) {
+                    throw IllegalStateException("Node '$executingId' returned missing next node '$nextId'")
+                }
+                currentId = nextId
             } catch (e: Exception) {
                 errorCount++
-                Log.e(TAG, "step $step: [$currentId] $nodeType FAILED: ${e.message}", e)
-                workflowContext.log("✗ Error in '$nodeType': ${e.message}")
-                currentId = null
+                val message = e.message ?: e.javaClass.simpleName
+                Log.e(TAG, "step $step: [$executingId] $nodeType FAILED: $message", e)
+                workflowContext.putVariable("_last_error", true)
+                workflowContext.putVariable("_last_error_msg", message)
+                workflowContext.log("✗ Error in '$nodeType' (node '$executingId'): $message")
+                currentId = node.branches?.get("error")?.trim()?.takeIf { it.isNotEmpty() }
+                if (currentId != null) {
+                    workflowContext.log("Recovering through error branch → '$currentId'")
+                }
             }
 
             val elapsed = System.currentTimeMillis() - startTime
             if (elapsed > 1000) {
-                Log.i(TAG, "step $step: [$currentId] $nodeType took ${elapsed}ms (slow)")
+                Log.i(TAG, "step $step: [$executingId] $nodeType took ${elapsed}ms (slow)")
             }
 
             step++
@@ -105,6 +136,8 @@ class HabitatExecutor(
 
         if (step >= maxSteps) {
             Log.w(TAG, "=== Aborted after $maxSteps steps ===")
+            workflowContext.putVariable("_last_error", true)
+            workflowContext.putVariable("_last_error_msg", "Step limit $maxSteps reached")
             workflowContext.log("Habitat: Aborted (step limit $maxSteps reached)")
         } else {
             Log.i(TAG, "=== Finished: $step steps, $errorCount errors ===")
