@@ -1,7 +1,6 @@
 package com.ailun.habitat.trajectory
 
 import com.ailun.habitat.execution.DiffEntry
-import com.ailun.habitat.execution.NodeResult
 import com.ailun.habitat.expression.ExpressionResult
 import com.ailun.habitat.perception.ScreenState
 
