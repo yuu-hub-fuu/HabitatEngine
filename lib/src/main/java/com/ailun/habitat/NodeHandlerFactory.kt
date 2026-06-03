@@ -7,6 +7,8 @@ import com.ailun.habitat.confirmation.ConfirmationManager
 import com.ailun.habitat.expression.ExpressionEngine
 import com.ailun.habitat.handlers.*
 
+import java.util.concurrent.ConcurrentHashMap
+
 class NodeHandlerFactory(
     private val a11y: IAccessibilityProvider? = null,
     private val shell: IShellExecutor? = null,
@@ -14,7 +16,7 @@ class NodeHandlerFactory(
     private val llmService: ILLMService? = null,
 ) {
 
-    private val registry = mutableMapOf<String, INodeHandler>()
+    private val registry = ConcurrentHashMap<String, INodeHandler>()
 
     /** Shared expression engine used by switch and loop handlers. */
     val expressionEngine = ExpressionEngine()
@@ -90,7 +92,9 @@ class NodeHandlerFactory(
         register(ACTION_CONFIRM, NodeConfirmHandler(confirmationManager))
 
         // ── 技能 ──
-        register(ACTION_CALL_SKILL, NodeCallSkillHandler())
+        register(ACTION_CALL_SKILL, NodeCallSkillHandler(subGraphExecutor = { graph, ctx ->
+            HabitatExecutor(this).execute(graph, ctx).join()
+        }))
 
         // ── AI ──
         register(ACTION_AI_CHAT, NodeLLMHandler(llmService = llmService))

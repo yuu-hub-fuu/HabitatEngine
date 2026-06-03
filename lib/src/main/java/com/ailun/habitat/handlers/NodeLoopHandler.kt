@@ -57,7 +57,8 @@ class NodeLoopHandler(
         val conditionExpr = params["condition_expr"]?.toString()?.trim().orEmpty()
         val maxIterations = (params["max_iterations"] as? Number)?.toInt() ?: 100
 
-        val iterVar = "_while_iter_count_"
+        // Per-node iteration counter to prevent collision between nested/concurrent loops.
+        val iterVar = "_while_iter_${node.id?.trim().orEmpty()}"
         val iterCount = (context.getVariable(iterVar) as? Number)?.toInt() ?: 0
 
         if (iterCount >= maxIterations) {

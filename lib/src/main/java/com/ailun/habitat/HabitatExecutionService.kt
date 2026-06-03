@@ -31,7 +31,7 @@ object HabitatExecutionService {
 
     /**
      * 启动工作流执行。
-     * @return true 如果成功启动，false 如果已在运行中（防止重复执行）
+     * @return [StartResult.Started] 如果成功启动，[StartResult.AlreadyRunning] 或 [StartResult.InvalidGraph] 否则。
      */
     fun start(
         workflowId: String,
@@ -41,11 +41,11 @@ object HabitatExecutionService {
         initialVars: Map<String, Any>? = null,
         onComplete: (() -> Unit)? = null,
         onLog: ((String) -> Unit)? = null,
-    ): Boolean = synchronized(startLock) {
+    ): StartResult = synchronized(startLock) {
         if (isRunning(workflowId)) {
             Log.w(TAG, "Workflow '$workflowId' already running — skip duplicate start")
             onLog?.invoke("Workflow '$workflowId' already running; duplicate start skipped")
-            return@synchronized false
+            return@synchronized StartResult.AlreadyRunning(workflowId)
         }
 
         HabitatStateStore.setRunning(workflowId, true)
@@ -53,9 +53,14 @@ object HabitatExecutionService {
         val job = execScope.launch(start = CoroutineStart.LAZY) {
             try {
                 Log.i(TAG, "=== Start workflow '$workflowId' ===")
-                val graph = HabitatJson.fromJson(jsonContent)
+                val graph = try {
+                    HabitatJson.fromJson(jsonContent)
+                } catch (e: Exception) {
+                    onLog?.invoke("Failed to parse workflow JSON: ${e.message}")
+                    return@launch
+                }
                 val executor = HabitatExecutor(factory)
-                val ctx = WorkflowContext(androidContext)
+                val ctx = WorkflowContext(definitionId = workflowId, context = androidContext)
                 initialVars?.forEach { (k, v) -> ctx.variables[k] = v }
                 executor.execute(graph, ctx, onLog).join()
             } catch (_: CancellationException) {
@@ -75,7 +80,7 @@ object HabitatExecutionService {
 
         activeJobs[workflowId] = job
         job.start()
-        true
+        StartResult.Started(workflowId)
     }
 
     /** 停止工作流执行 */
@@ -86,3 +91,22 @@ object HabitatExecutionService {
         Log.i(TAG, "Workflow '$workflowId' stopped")
     }
 }
+
+/**
+ * Structured result type for [HabitatExecutionService.start].
+ *
+ * Callers should match on the sealed class rather than treating it as a Boolean.
+ */
+sealed class StartResult(val workflowId: String) {
+    /** Workflow was accepted and execution has begun. */
+    data class Started(val id: String) : StartResult(id)
+
+    /** A run with this ID is already in progress. */
+    data class AlreadyRunning(val id: String) : StartResult(id)
+
+    /** The JSON payload could not be parsed into a valid graph. */
+    data class InvalidGraph(val id: String, val reason: String? = null) : StartResult(id)
+}
+
+/** Backward-compatible Boolean conversion for callers not yet migrated. */
+fun StartResult.isStarted(): Boolean = this is StartResult.Started

@@ -47,6 +47,7 @@ import com.ailun.habitat.ai.ILLMService
 import com.ailun.habitat.R
 import com.ailun.habitat.app.ai.LLMServiceProvider
 import com.ailun.habitat.app.bridge.AppAccessibilityProvider
+import com.ailun.habitat.app.bridge.RuntimeFactoryProvider
 import com.ailun.habitat.app.bridge.ShizukuShellExecutor
 import com.ailun.habitat.app.bridge.applyAppHandlers
 import com.ailun.habitat.app.dag.DagGraph
@@ -165,10 +166,12 @@ fun HabitatDashboard(activity: ComponentActivity) {
             HabitatStateStore.notifyLibraryChanged()
         }
 
-        fun runGraphJson(json: String, targetLogs: MutableList<String>, workflowId: String? = null) {
+        fun runGraphJson(json: String, targetLogs: MutableList<String>, workflowId: String? = null, isManualRun: Boolean = false) {
             val id = workflowId ?: "adhoc_${System.currentTimeMillis()}"
             activity.lifecycleScope.launch(Dispatchers.IO) {
-                if (workflowId != null && !TriggerManager.isWorkflowEnabled(activity.applicationContext, workflowId)) {
+                // Only the enabled switch blocks triggered runs and manual-enable runs.
+                // Editor test-runs and adhoc executions always proceed regardless of switch state.
+                if (!isManualRun && workflowId != null && !TriggerManager.isWorkflowEnabled(activity.applicationContext, workflowId)) {
                     withContext(Dispatchers.Main) { targetLogs.add("工作流已禁用，无法执行") }
                     return@launch
                 }
@@ -177,9 +180,7 @@ fun HabitatDashboard(activity: ComponentActivity) {
                     return@launch
                 }
                 withContext(Dispatchers.Main) { targetLogs.clear(); targetLogs.add("— 开始执行 —") }
-                val factory = NodeHandlerFactory(AppAccessibilityProvider, ShizukuShellExecutor(activity.applicationContext)).apply {
-                    applyAppHandlers(activity.applicationContext)
-                }
+                val factory = RuntimeFactoryProvider.build(activity.applicationContext)
                 HabitatExecutionService.start(id, json, activity.applicationContext, factory) { line ->
                     activity.lifecycleScope.launch(Dispatchers.Main.immediate) { targetLogs.add(line) }
                 }
@@ -239,7 +240,7 @@ fun HabitatDashboard(activity: ComponentActivity) {
                             WorkflowRepository.upsert(activity, saved); editingBase = saved; reloadLibrary()
                         },
                         onTestRun = {
-                            runGraphJson(editJson, editLogs, editingBase?.id)
+                            runGraphJson(editJson, editLogs, editingBase?.id, isManualRun = false)
                         },
                     )
 

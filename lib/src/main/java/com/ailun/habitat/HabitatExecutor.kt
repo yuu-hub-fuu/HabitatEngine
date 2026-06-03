@@ -149,7 +149,7 @@ class HabitatExecutor(
                             workflowContext.log("→ Compensating with '${result.compensateAction.handlerType}'")
                             StepOutcome.Compensate(result.compensateAction, result)
                         }
-                        node.branches?.get("error") != null -> {
+                        node.branches?.get("error")?.trim()?.takeIf { it.isNotEmpty() } != null -> {
                             val errorBranch = node.branches?.get("error")?.trim()?.takeIf { it.isNotEmpty() }
                             workflowContext.log("→ Routing to error branch '$errorBranch'")
                             StepOutcome.Continue(errorBranch, result)
@@ -178,8 +178,7 @@ class HabitatExecutor(
 
             // Record trajectory
             if (trajectoryStore != null) {
-                val result = (stepResult as? StepOutcome.Continue)?.result
-                    ?: (stepResult as? StepOutcome.Stop)?.result
+                val result = stepResult.result
                 trajectoryStore.recordStep(TrajectoryStep(
                     runId = runId, stepIndex = step, taskDescription = node.description ?: nodeType,
                     nodeId = executingId, nodeType = nodeType,
@@ -211,7 +210,10 @@ class HabitatExecutor(
                                 compRaw.handle(compNode, workflowContext)
                             }
                         } catch (compError: Exception) {
-                            workflowContext.log("Compensation failed: ${compError.message}")
+                            val msg = compError.message ?: compError.javaClass.simpleName
+                            workflowContext.log("Compensation failed: $msg")
+                            workflowContext.variables["_last_error"] = true
+                            workflowContext.variables["_last_error_msg"] = "Compensation '${stepResult.action.handlerType}' failed: $msg"
                         }
                     }
                     null
@@ -231,6 +233,9 @@ class HabitatExecutor(
             workflowContext.log("Habitat: Finished ($step steps, $errorCount errors)")
         }
 
+        // Reset confirmation tokens so they don't leak across executions.
+        factory.confirmationManager?.reset()
+
         if (executionMode == ExecutionMode.LIVE_RUN) {
             trajectoryStore?.endRun(runId, null)
         }
@@ -238,8 +243,11 @@ class HabitatExecutor(
 }
 
 sealed class StepOutcome {
-    data class Continue(val nextNodeId: String?, val result: NodeResult? = null) : StepOutcome()
-    data class Rollback(val rollbackNodeId: String, val result: NodeResult? = null) : StepOutcome()
-    data class Compensate(val action: CompensateAction, val result: NodeResult? = null) : StepOutcome()
-    data class Stop(val reason: String?, val result: NodeResult? = null) : StepOutcome()
+    /** Unified result reference — available for all outcome types. */
+    abstract val result: NodeResult?
+
+    data class Continue(val nextNodeId: String?, override val result: NodeResult? = null) : StepOutcome()
+    data class Rollback(val rollbackNodeId: String, override val result: NodeResult? = null) : StepOutcome()
+    data class Compensate(val action: CompensateAction, override val result: NodeResult? = null) : StepOutcome()
+    data class Stop(val reason: String?, override val result: NodeResult? = null) : StepOutcome()
 }

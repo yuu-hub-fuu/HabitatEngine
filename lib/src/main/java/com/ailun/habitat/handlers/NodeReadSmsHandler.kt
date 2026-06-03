@@ -124,7 +124,7 @@ class NodeReadSmsHandler(
                 val isMatch = matches(sender, body, code, filterBy, senderFilter, contentFilter, extractCode)
                 if (isMatch && (!extractCode || code.isNotEmpty())) {
                     setResult(context, sender, body, code)
-                    context.log("ReadSMS shell: found code=$code")
+                    context.log("ReadSMS shell: found verification code (${code.length} chars)")
                     return true
                 }
             }

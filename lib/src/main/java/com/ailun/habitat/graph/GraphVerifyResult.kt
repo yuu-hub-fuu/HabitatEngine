@@ -84,6 +84,9 @@ sealed class VerifyWarning(val message: String) {
     data class HighRiskWithoutGuard(val nodeId: String) :
         VerifyWarning("Node '$nodeId' is high-risk but has no guard condition")
 
+    data class CircularRisk(val nodes: List<String>) :
+        VerifyWarning("Cycle detected through nodes ${nodes.take(3).joinToString(" → ")}; has a break condition but may still loop indefinitely")
+
     data class MissingSuccessCriteria :
         VerifyWarning("Workflow has no success criteria defined")
 

@@ -44,11 +44,17 @@ object WorkflowGraphValidator {
         for ((key, node) in nodes) {
             val id = node.id?.trim()
             val type = node.type?.trim()
-            if (id.isNullOrEmpty()) issues += error("missing id", key)
-            else if (id != key) issues += error("id '$id' does not match key '$key'", key)
+            if (id.isNullOrEmpty()) {
+                // Auto-repair: fill id from map key
+                node.id = key
+            } else if (id != key) {
+                // Warning rather than error — runtime uses map key, not node.id
+                issues += warning("id '$id' differs from map key '$key'; using key", key)
+            }
             if (type.isNullOrEmpty()) issues += error("missing type", key)
             else if (registeredTypes != null && type !in registeredTypes) issues += error("unregistered node type '$type'", key)
             validateEdges(key, node, nodes, issues)
+            validateBranchKeysForKey(key, type, node, issues)
         }
 
         if (startId != null && nodes.containsKey(startId)) {
@@ -77,6 +83,30 @@ object WorkflowGraphValidator {
         val type = node.type?.trim()
         if ((type == NodeHandlerFactory.CONDITION_SWITCH || type == NodeHandlerFactory.CONDITION_ADVANCED_SWITCH) && node.branches.isNullOrEmpty()) {
             issues += warning("condition node has no branches", key)
+        }
+    }
+
+    /** Per-type branch key validation. Warns on missing expected keys for known node types. */
+    private fun validateBranchKeysForKey(
+        key: String, type: String?, node: WorkflowNode,
+        issues: MutableList<WorkflowValidationIssue>,
+    ) {
+        val branches = node.branches
+        val expected = when (type) {
+            NodeHandlerFactory.CONDITION_SWITCH,
+            NodeHandlerFactory.CONDITION_ADVANCED_SWITCH -> listOf("true", "false")
+            NodeHandlerFactory.ACTION_TRY_CATCH -> listOf("success", "error")
+            NodeHandlerFactory.ACTION_CONFIRM -> listOf("denied") // optional but validated
+            NodeHandlerFactory.ACTION_LOOP -> listOf("loop", "end")
+            else -> null
+        }
+        if (expected == null) return
+
+        val present = branches?.keys?.mapNotNull { it?.trim() }?.toSet().orEmpty()
+        for (exp in expected) {
+            if (exp !in present) {
+                issues += warning("${type ?: "node"} '$key' is missing branch '$exp'", key)
+            }
         }
     }
 

@@ -59,6 +59,8 @@ class NodeConfirmHandler(
         } else {
             context.log("ACTION_CONFIRM: User denied — routing to denied branch or stopping")
             context.variables["confirmation_approved"] = false
+            context.variables["_last_error"] = true
+            context.variables["_last_error_msg"] = "User denied confirmation for '$targetNode'"
             node.branches?.get("denied")
         }
     }

@@ -7,23 +7,57 @@ import kotlinx.coroutines.delay
 
 /**
  * [ACTION_DELAY]：暂停执行指定毫秒数。
- * params: `millis`（优先）或 `ms` — 延迟毫秒数
+ *
+ * params:
+ * - `millis`（优先）或 `ms` — 延迟毫秒数
+ *   Must be >= 0. Negative values fail. Values above [MAX_DELAY_MS]
+ *   are capped and the truncation is logged.
  */
 class NodeDelayHandler : INodeHandler {
-    override suspend fun handle(node: WorkflowNode, context: WorkflowContext): String? {
-        val ms = parseLong(node.params?.get("millis"))
-            ?: parseLong(node.params?.get("ms"))
-            ?: 0L
-        context.log("Delay ${ms}ms")
-        if (ms > 0) delay(ms.coerceAtMost(60_000L))
-        return node.next
+
+    companion object {
+        const val MAX_DELAY_MS = 600_000L // 10 minutes
     }
 
-    private fun parseLong(value: Any?): Long? {
-        return when (value) {
-            is Number -> value.toLong()
-            is String -> value.toLongOrNull()
-            else -> null
+    override suspend fun handle(node: WorkflowNode, context: WorkflowContext): String? {
+        val raw = node.params?.get("millis") ?: node.params?.get("ms")
+
+        val ms = when (raw) {
+            is Number -> raw.toLong()
+            is String -> {
+                raw.toLongOrNull() ?: run {
+                    context.log("ACTION_DELAY: invalid millis value '$raw'; failing")
+                    context.variables["_last_error"] = true
+                    context.variables["_last_error_msg"] = "Invalid delay value: $raw"
+                    return node.next
+                }
+            }
+            else -> {
+                context.log("ACTION_DELAY: missing or invalid millis/ms param; failing")
+                context.variables["_last_error"] = true
+                context.variables["_last_error_msg"] = "Missing delay parameter"
+                return node.next
+            }
         }
+
+        if (ms < 0) {
+            context.log("ACTION_DELAY: negative delay ($ms ms); failing")
+            context.variables["_last_error"] = true
+            context.variables["_last_error_msg"] = "Negative delay: $ms"
+            return node.next
+        }
+
+        val effective = if (ms > MAX_DELAY_MS) {
+            context.log("ACTION_DELAY: requested ${ms}ms capped to ${MAX_DELAY_MS}ms (${
+                ms / 60_000
+            } min → ${MAX_DELAY_MS / 60_000} min max)")
+            context.variables["delay_truncated"] = true
+            MAX_DELAY_MS
+        } else {
+            ms
+        }
+
+        if (effective > 0) delay(effective)
+        return node.next
     }
 }

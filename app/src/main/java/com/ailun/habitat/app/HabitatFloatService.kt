@@ -18,6 +18,7 @@ import com.ailun.habitat.HabitatWorkflow
 import com.ailun.habitat.NodeHandlerFactory
 import com.ailun.habitat.R
 import com.ailun.habitat.app.bridge.AppAccessibilityProvider
+import com.ailun.habitat.app.bridge.RuntimeFactoryProvider
 import com.ailun.habitat.app.bridge.ShizukuShellExecutor
 import com.ailun.habitat.app.bridge.applyAppHandlers
 import kotlinx.coroutines.*
@@ -108,13 +109,11 @@ class HabitatFloatService : Service() {
     }
 
     private fun runMountedWorkflow(wf: HabitatWorkflow) {
-        val factory = NodeHandlerFactory(AppAccessibilityProvider, ShizukuShellExecutor(applicationContext)).apply {
-            applyAppHandlers(applicationContext)
-        }
-        val ok = HabitatExecutionService.start(wf.id, wf.jsonContent, applicationContext, factory) { log ->
+        val factory = RuntimeFactoryProvider.build(applicationContext)
+        val result = HabitatExecutionService.start(wf.id, wf.jsonContent, applicationContext, factory) { log ->
             HabitatLogger.habitat(log)
         }
-        if (ok) HabitatLogger.d(TAG, "启动工作流: ${wf.name}")
+        if (result.isStarted()) HabitatLogger.d(TAG, "启动工作流: ${wf.name}")
         else HabitatLogger.d(TAG, "工作流已在运行: ${wf.name}")
     }
 

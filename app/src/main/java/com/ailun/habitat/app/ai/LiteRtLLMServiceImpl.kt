@@ -9,49 +9,56 @@ import com.google.ai.edge.litertlm.Engine
 import com.google.ai.edge.litertlm.EngineConfig
 import com.google.ai.edge.litertlm.Message
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.io.File
 
 class LiteRtLLMServiceImpl(private val context: Context) : ILLMService {
 
+    private val engineMutex = Mutex()
     private var engine: Engine? = null
     private var currentModelPath: String? = null
 
-    override suspend fun loadModel(modelPath: String): Result<Unit> = withContext(Dispatchers.IO) {
-        try {
-            val modelFile = File(modelPath)
-            if (!modelFile.exists()) {
-                return@withContext Result.failure(IllegalArgumentException("Model file not found: $modelPath"))
+    override suspend fun loadModel(modelPath: String): Result<Unit> = engineMutex.withLock {
+        withContext(Dispatchers.IO) {
+            try {
+                val modelFile = File(modelPath)
+                if (!modelFile.exists()) {
+                    return@withContext Result.failure(IllegalArgumentException("Model file not found: $modelPath"))
+                }
+
+                engine?.close()
+                engine = null
+
+                val config = EngineConfig(
+                    modelPath = modelPath,
+                    backend = Backend.CPU()
+                )
+                engine = Engine(config).also { it.initialize() }
+                currentModelPath = modelPath
+                Log.i(TAG, "Model loaded: $modelPath")
+                Result.success(Unit)
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to load model: ${e.message}", e)
+                Result.failure(e)
             }
-
-            engine?.close()
-            engine = null
-
-            val config = EngineConfig(
-                modelPath = modelPath,
-                backend = Backend.CPU()
-            )
-            engine = Engine(config).also { it.initialize() }
-            currentModelPath = modelPath
-            Log.i(TAG, "Model loaded: $modelPath")
-            Result.success(Unit)
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to load model: ${e.message}", e)
-            Result.failure(e)
         }
     }
 
-    override suspend fun chat(prompt: String): String = withContext(Dispatchers.IO) {
-        val eng = engine ?: return@withContext "Error: Model not loaded"
-        try {
-            val conversation = eng.createConversation()
-            val response = conversation.sendMessage(Message.user(prompt))
-            response.contents.contents
-                .filterIsInstance<Content.Text>()
-                .joinToString("") { it.text }
-        } catch (e: Exception) {
-            Log.e(TAG, "Chat failed: ${e.message}", e)
-            "Error: ${e.message}"
+    override suspend fun chat(prompt: String): String = engineMutex.withLock {
+        withContext(Dispatchers.IO) {
+            val eng = engine ?: return@withContext "Error: Model not loaded"
+            try {
+                val conversation = eng.createConversation()
+                val response = conversation.sendMessage(Message.user(prompt))
+                response.contents.contents
+                    .filterIsInstance<Content.Text>()
+                    .joinToString("") { it.text }
+            } catch (e: Exception) {
+                Log.e(TAG, "Chat failed: ${e.message}", e)
+                "Error: ${e.message}"
+            }
         }
     }
 

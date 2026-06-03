@@ -1,5 +1,6 @@
 package com.ailun.habitat.confirmation
 
+import com.ailun.habitat.NodeHandlerFactory
 import com.ailun.habitat.WorkflowNode
 import com.ailun.habitat.api.ConfirmationRequest
 import com.ailun.habitat.api.IConfirmationProvider
@@ -99,30 +100,30 @@ class ConfirmationManager(
         val label = node.label ?: node.description ?: type
 
         return when (type) {
-            "ACTION_SHELL" -> {
+            NodeHandlerFactory.ACTION_SHELL -> {
                 val cmd = interpolatedParams["command"] ?: node.params?.get("command")?.toString() ?: ""
                 if (cmd.length > 80) "执行 Shell: ${cmd.take(80)}..." else "执行 Shell: $cmd"
             }
-            "ACTION_FILE_OPERATION" -> {
+            NodeHandlerFactory.ACTION_FILE_OPERATION -> {
                 val action = interpolatedParams["action"] ?: node.params?.get("action")?.toString() ?: ""
                 val path = interpolatedParams["path"] ?: node.params?.get("path")?.toString() ?: ""
                 "文件操作 ($action): $path"
             }
-            "ACTION_CALL_PHONE" -> {
+            NodeHandlerFactory.ACTION_CALL_PHONE -> {
                 val number = interpolatedParams["phone_number"] ?: node.params?.get("phone_number")?.toString() ?: ""
                 "拨打电话: $number"
             }
-            "ACTION_SHARE" -> {
+            NodeHandlerFactory.ACTION_SHARE -> {
                 val text = interpolatedParams["text"] ?: node.params?.get("text")?.toString() ?: ""
                 if (text.length > 50) "分享内容: ${text.take(50)}..." else "分享内容: $text"
             }
-            "ACTION_HTTP_REQUEST" -> {
+            NodeHandlerFactory.ACTION_HTTP_REQUEST -> {
                 val method = interpolatedParams["method"] ?: node.params?.get("method")?.toString() ?: "GET"
                 val url = interpolatedParams["url"] ?: node.params?.get("url")?.toString() ?: ""
                 "HTTP $method: $url"
             }
-            "ACTION_READ_SMS" -> "读取短信内容"
-            "ACTION_SEND_NOTIFICATION" -> "发送系统通知"
+            NodeHandlerFactory.ACTION_READ_SMS -> "读取短信内容"
+            NodeHandlerFactory.ACTION_SEND_NOTIFICATION -> "发送系统通知"
             else -> "执行节点: $label"
         }
     }

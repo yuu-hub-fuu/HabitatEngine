@@ -98,6 +98,8 @@ class GraphVerifier(
                     deadLoops.add(DeadLoop(currentId, cycleNodes, hasBreak))
                     if (!hasBreak) {
                         errors.add(VerifyError.CircularDependency(cycleNodes))
+                    } else {
+                        warnings.add(VerifyWarning.CircularRisk(cycleNodes))
                     }
                 }
                 return
@@ -217,10 +219,26 @@ class GraphVerifier(
         // ── 6. Risk analysis ──
         val riskAssessment = riskEngine.assessGraph(graph)
         val highRiskWithoutGuards = mutableListOf<String>()
+
+        // Build reverse-edge map to check for upstream ACTION_CONFIRM guards.
+        val predecessors = mutableMapOf<String, MutableSet<String>>()
+        for ((id, node) in nodes) {
+            node.next?.let { predecessors.getOrPut(it) { mutableSetOf() }.add(id) }
+            node.branches?.values?.filterNotNull()?.forEach { target ->
+                predecessors.getOrPut(target) { mutableSetOf() }.add(id)
+            }
+        }
+
         for ((nodeId, assessment) in riskAssessment.nodeAssessments) {
             if (assessment.requiresConfirmation) {
-                highRiskWithoutGuards.add(nodeId)
-                warnings.add(VerifyWarning.HighRiskWithoutGuard(nodeId))
+                // Skip warning if any immediate predecessor is ACTION_CONFIRM.
+                val guarded = predecessors[nodeId]?.any { predId ->
+                    nodes[predId]?.type == NodeHandlerFactory.ACTION_CONFIRM
+                } ?: false
+                if (!guarded) {
+                    highRiskWithoutGuards.add(nodeId)
+                    warnings.add(VerifyWarning.HighRiskWithoutGuard(nodeId))
+                }
             }
         }
 
@@ -262,6 +280,10 @@ class GraphVerifier(
         val missingSuccessCriteria = graph.successCriteria == null && graph.nodes?.values?.none {
             it.postCondition != null
         } ?: true
+
+        if (missingSuccessCriteria) {
+            warnings.add(VerifyWarning.MissingSuccessCriteria)
+        }
 
         val finalErrors = errors.toList()
         val isValid = finalErrors.isEmpty()

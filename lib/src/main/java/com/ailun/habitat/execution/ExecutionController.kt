@@ -2,6 +2,7 @@ package com.ailun.habitat.execution
 
 import com.ailun.habitat.WorkflowContext
 import com.ailun.habitat.WorkflowGraph
+import com.ailun.habitat.NodeHandlerFactory
 import com.ailun.habitat.capability.RiskEngine
 import com.ailun.habitat.capability.RiskLevel
 import com.ailun.habitat.graph.GraphVerifier
@@ -21,14 +22,14 @@ class ExecutionController(
         val dangerousPaths = mutableListOf<String>()
 
         graph.nodes?.forEach { (_, node) ->
-            if (node.type == "ACTION_SHELL") {
+            if (node.type == NodeHandlerFactory.ACTION_SHELL) {
                 val cmd = node.params?.get("command")?.toString() ?: return@forEach
                 val destructive = listOf("rm ", "rm -rf", "reboot", "pm uninstall", "dd if=")
                     .any { cmd.contains(it, ignoreCase = true) }
                 shellRisks.add(ShellRisk(node.id ?: "", cmd, cmd, destructive,
                     if (destructive) RiskLevel.CRITICAL else RiskLevel.HIGH))
             }
-            if (node.type == "ACTION_HTTP_REQUEST") {
+            if (node.type == NodeHandlerFactory.ACTION_HTTP_REQUEST) {
                 val method = node.params?.get("method")?.toString()?.uppercase() ?: "GET"
                 if (method in listOf("POST", "PUT", "PATCH")) {
                     val url = node.params?.get("url")?.toString() ?: ""
@@ -38,7 +39,7 @@ class ExecutionController(
                         if (sendsVars.isNotEmpty()) RiskLevel.MEDIUM else RiskLevel.LOW))
                 }
             }
-            if (node.type == "ACTION_FILE_OPERATION") {
+            if (node.type == NodeHandlerFactory.ACTION_FILE_OPERATION) {
                 val path = node.params?.get("path")?.toString() ?: ""
                 if (path.contains("..") || path.startsWith("/system") || path.startsWith("/data/data")) {
                     dangerousPaths.add("${node.id}: $path")
@@ -48,7 +49,7 @@ class ExecutionController(
 
         val permissionGaps = mutableListOf<String>()
         if (shellRisks.isNotEmpty()) permissionGaps.add("SHELL_EXEC required")
-        val hasSmsRead = graph.nodes?.values?.any { it.type == "ACTION_READ_SMS" } == true
+        val hasSmsRead = graph.nodes?.values?.any { it.type == NodeHandlerFactory.ACTION_READ_SMS } == true
         if (hasSmsRead) permissionGaps.add("READ_SMS required")
 
         return DryRunResult(
@@ -78,10 +79,10 @@ class ExecutionController(
             } else null
 
             val requiresTarget = node.type in setOf(
-                "ACTION_CLICK",
-                "ACTION_LONG_PRESS",
-                "ACTION_INPUT_TEXT",
-                "ACTION_FIND_ELEMENT",
+                NodeHandlerFactory.ACTION_CLICK,
+                NodeHandlerFactory.ACTION_LONG_PRESS,
+                NodeHandlerFactory.ACTION_INPUT_TEXT,
+                NodeHandlerFactory.ACTION_FIND_ELEMENT,
             )
             val targetFound = when {
                 target.isNullOrBlank() -> !requiresTarget
@@ -120,16 +121,16 @@ class ExecutionController(
         val warnings = mutableListOf<String>()
         graph.nodes?.forEach { (id, node) ->
             when (node.type) {
-                "ACTION_FILE_OPERATION" -> {
+                NodeHandlerFactory.ACTION_FILE_OPERATION -> {
                     val path = node.params?.get("path")?.toString() ?: ""
                     if (path.startsWith("/") && !path.startsWith("/data/local/tmp")) {
                         warnings.add("FILE_OPERATION[$id]: Would access $path (redirected to temp)")
                     }
                 }
-                "ACTION_SHELL" -> {
+                NodeHandlerFactory.ACTION_SHELL -> {
                     warnings.add("SHELL[$id]: Command execution blocked in sandbox")
                 }
-                "ACTION_HTTP_REQUEST" -> {
+                NodeHandlerFactory.ACTION_HTTP_REQUEST -> {
                     warnings.add("HTTP[$id]: Network request blocked in sandbox")
                 }
             }

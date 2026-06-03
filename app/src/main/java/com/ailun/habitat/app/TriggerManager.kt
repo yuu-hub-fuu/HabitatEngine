@@ -8,6 +8,7 @@ import com.ailun.habitat.TriggerConfig
 import com.ailun.habitat.api.ITriggerSource
 import com.ailun.habitat.api.TriggerEvent
 import com.ailun.habitat.app.bridge.AppAccessibilityProvider
+import com.ailun.habitat.app.bridge.RuntimeFactoryProvider
 import com.ailun.habitat.app.bridge.ShizukuShellExecutor
 import com.ailun.habitat.app.bridge.applyAppHandlers
 import com.ailun.habitat.app.triggers.*
@@ -27,6 +28,7 @@ object TriggerManager {
         val jsonContent: String,
     )
 
+    private val triggerLock = Any()
     private val entries = mutableMapOf<String, TriggerEntry>()
     private val sourceInstances = mutableMapOf<String, ITriggerSource>()
     private var factory: NodeHandlerFactory? = null
@@ -55,7 +57,7 @@ object TriggerManager {
             if (config != null && jsonContent != null) {
                 register(workflowId, config, jsonContent, context)
             } else if (jsonContent != null) {
-                val f = factory ?: buildFactory(context).also { factory = it }
+                val f = synchronized(triggerLock) { factory ?: buildFactory(context).also { factory = it } }
                 HabitatExecutionService.start(
                     workflowId = workflowId,
                     jsonContent = jsonContent,
@@ -84,7 +86,7 @@ object TriggerManager {
         config: TriggerConfig,
         jsonContent: String,
         context: Context,
-    ) {
+    ) = synchronized(triggerLock) {
         entries[workflowId] = TriggerEntry(workflowId, config, jsonContent)
 
         val source = sourceInstances.getOrPut(config.type) { createSource(config.type) }
@@ -95,7 +97,7 @@ object TriggerManager {
         HabitatLogger.habitat("Trigger active: '$workflowId' type=${config.type}")
     }
 
-    fun unregister(workflowId: String, context: Context) {
+    fun unregister(workflowId: String, context: Context) = synchronized(triggerLock) {
         val entry = entries.remove(workflowId) ?: return
         val type = entry.config.type
 
@@ -107,7 +109,7 @@ object TriggerManager {
         HabitatLogger.habitat("Trigger inactive: '$workflowId' type=$type")
     }
 
-    fun unregisterAll(context: Context) {
+    fun unregisterAll(context: Context) = synchronized(triggerLock) {
         sourceInstances.values.forEach { it.stop(context) }
         sourceInstances.clear()
         entries.clear()
@@ -120,7 +122,7 @@ object TriggerManager {
         unregisterAll(context)
         HabitatExecutionService.activeWorkflowIds().forEach { HabitatExecutionService.stop(it) }
         prefs(context).edit().clear().apply()
-        factory = null
+        synchronized(triggerLock) { factory = null }
         HabitatLogger.habitat("All workflow states reset")
     }
 
@@ -130,9 +132,9 @@ object TriggerManager {
 
     // ── Queries ──
 
-    fun isRegistered(workflowId: String): Boolean = entries.containsKey(workflowId)
-    fun registeredWorkflowIds(): Set<String> = entries.keys.toSet()
-    fun triggerConfigFor(workflowId: String): TriggerConfig? = entries[workflowId]?.config
+    fun isRegistered(workflowId: String): Boolean = synchronized(triggerLock) { entries.containsKey(workflowId) }
+    fun registeredWorkflowIds(): Set<String> = synchronized(triggerLock) { entries.keys.toSet() }
+    fun triggerConfigFor(workflowId: String): TriggerConfig? = synchronized(triggerLock) { entries[workflowId]?.config }
 
     // ── Internals ──
 
@@ -146,14 +148,17 @@ object TriggerManager {
     }
 
     private fun onTriggerEvent(event: TriggerEvent, context: Context) {
-        val matched = entries.values.filter { entry ->
-            isWorkflowEnabled(context, entry.workflowId) && matchEvent(entry.config, event)
+        val matched: List<TriggerEntry>
+        val currentFactory: NodeHandlerFactory
+        synchronized(triggerLock) {
+            matched = entries.values.filter { entry ->
+                isWorkflowEnabled(context, entry.workflowId) && matchEvent(entry.config, event)
+            }
+            currentFactory = factory ?: buildFactory(context).also { factory = it }
         }
 
         for (entry in matched) {
             HabitatLogger.habitat("Trigger fired: '${entry.workflowId}' type=${entry.config.type}")
-            val f = factory ?: buildFactory(context).also { factory = it }
-
             val vars = mutableMapOf<String, Any>("trigger_type" to event.type)
             event.params.forEach { (k, v) -> vars["trigger_$k"] = v }
 
@@ -162,7 +167,7 @@ object TriggerManager {
                     workflowId = entry.workflowId + "_" + System.currentTimeMillis(),
                     jsonContent = entry.jsonContent,
                     androidContext = context,
-                    factory = f,
+                    factory = currentFactory,
                     initialVars = vars,
                 )
             } else {
@@ -170,7 +175,7 @@ object TriggerManager {
                     workflowId = entry.workflowId,
                     jsonContent = entry.jsonContent,
                     androidContext = context,
-                    factory = f,
+                    factory = currentFactory,
                     initialVars = vars,
                 )
             }
@@ -199,10 +204,7 @@ object TriggerManager {
     }
 
     private fun buildFactory(context: Context): NodeHandlerFactory {
-        return NodeHandlerFactory(
-            AppAccessibilityProvider,
-            ShizukuShellExecutor(context.applicationContext),
-        ).apply { applyAppHandlers(context.applicationContext) }
+        return RuntimeFactoryProvider.build(context.applicationContext)
     }
 
     private fun prefs(context: Context) =

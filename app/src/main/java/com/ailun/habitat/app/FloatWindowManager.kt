@@ -23,6 +23,7 @@ import com.ailun.habitat.HabitatWorkflow
 import com.ailun.habitat.NodeHandlerFactory
 import com.ailun.habitat.WorkflowRepository
 import com.ailun.habitat.app.bridge.AppAccessibilityProvider
+import com.ailun.habitat.app.bridge.RuntimeFactoryProvider
 import com.ailun.habitat.app.bridge.ShizukuShellExecutor
 import com.ailun.habitat.app.bridge.applyAppHandlers
 import kotlinx.coroutines.*
@@ -51,6 +52,9 @@ class FloatWindowManager private constructor(private val application: Applicatio
     private var inCloseZone by mutableStateOf(false)
     private var panelDragStartX = 0
     private var panelDragStartY = 0
+
+    /** Workflow IDs launched from the float window — only these are stopped on destroy. */
+    private val floatOwnedWorkflowIds = mutableSetOf<String>()
 
     private var allWorkflows by mutableStateOf(listOf<HabitatWorkflow>())
     private var mountedIds by mutableStateOf(setOf<String>())
@@ -112,7 +116,9 @@ class FloatWindowManager private constructor(private val application: Applicatio
     fun destroy() {
         isOverlayShowing = false
         libObserverJob?.cancel()
-        HabitatExecutionService.activeWorkflowIds().forEach { HabitatExecutionService.stop(it) }
+        // Only stop workflows launched from the float window, not every active workflow.
+        floatOwnedWorkflowIds.toList().forEach { HabitatExecutionService.stop(it) }
+        floatOwnedWorkflowIds.clear()
         removeOverlay()
     }
 
@@ -309,10 +315,11 @@ class FloatWindowManager private constructor(private val application: Applicatio
     private fun animateToEdge(params: WindowManager.LayoutParams) {
         val v = composeView ?: return
         val startX = params.x
-        val startY = params.y.coerceIn(statusBarHeight(), screenHeight - ballSize)
+        val startY = params.y
         val targetX = if (startX + ballSize / 2 < screenWidth / 2) dp(6) else screenWidth - ballSize - dp(6)
+        val targetY = startY.coerceIn(statusBarHeight(), screenHeight - ballSize)
 
-        if (startX == targetX && startY == params.y) return
+        if (startX == targetX && startY == targetY) return
 
         android.animation.ValueAnimator.ofFloat(0f, 1f).apply {
             duration = 200
@@ -320,7 +327,7 @@ class FloatWindowManager private constructor(private val application: Applicatio
             addUpdateListener {
                 val f = animatedFraction
                 params.x = (startX + ((targetX - startX) * f).toInt())
-                params.y = (startY + ((startY - params.y.coerceIn(0, screenHeight - ballSize)) * f).toInt())
+                params.y = (startY + ((targetY - startY) * f).toInt())
                 try { windowManager.updateViewLayout(v, params) } catch (_: Exception) {}
             }
             start()
@@ -337,10 +344,9 @@ class FloatWindowManager private constructor(private val application: Applicatio
             HabitatLogger.habitat("Workflow '${wf.name}' is disabled, skipping execution")
             return
         }
-        val factory = NodeHandlerFactory(AppAccessibilityProvider, ShizukuShellExecutor(application)).apply {
-            applyAppHandlers(application)
-        }
-        HabitatExecutionService.start(wf.id, wf.jsonContent, application, factory)
+        val factory = RuntimeFactoryProvider.build(application)
+        val started = HabitatExecutionService.start(wf.id, wf.jsonContent, application, factory)
+        if (started.isStarted()) floatOwnedWorkflowIds.add(wf.id)
     }
 
     private fun removeOverlay() {

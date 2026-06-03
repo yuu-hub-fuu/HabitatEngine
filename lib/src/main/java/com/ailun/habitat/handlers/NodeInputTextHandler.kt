@@ -10,17 +10,21 @@ import com.ailun.habitat.api.IAccessibilityProvider
 import com.ailun.habitat.api.IShellExecutor
 
 /**
- * [ACTION_INPUT_TEXT] : 在当前焦点输入框中输入文本。
+ * [ACTION_INPUT_TEXT] : 向输入框输入文本。
  *
  * params:
- * - `text` (必需): 要输入的文本内容，支持 `${var}` 变量插值
- * - `mode` (可选, 默认 "a11y"): 输入模式
- *   - "a11y": 通过无障碍服务的 ACTION_SET_TEXT 在焦点节点输入
- *   - "shell": 通过 `input text` shell 命令输入
- *   - "ime": 通过 shell `input text` 命令输入（与 shell 相同）
+ * - `text` (必需): 文本内容，支持 `${var}` 变量插值
+ * - `target` / `selector` (可选): 要查找的输入框描述/文本/ID。
+ *   如果提供，先查找匹配的输入框，再对其输入。
+ *   如果不提供，使用当前焦点输入框。
+ * - `mode` (可选, 默认 "a11y"): "a11y" | "shell" | "clipboard"
+ *   - "a11y": ACTION_SET_TEXT（无障碍服务）
+ *   - "shell": `input text` + 转义 + 长度限制（备选）
+ *   - "clipboard": 粘贴板写入 + KEYCODE_PASTE（兼容不稳定字符）
  *
  * 输出变量:
- * - `input_success` (Boolean): 输入是否成功
+ * - `input_success` (Boolean)
+ * - `input_error` (String, 失败原因)
  */
 class NodeInputTextHandler(
     private val provider: IAccessibilityProvider?,
@@ -30,73 +34,61 @@ class NodeInputTextHandler(
     override suspend fun handle(node: WorkflowNode, context: WorkflowContext): String? {
         val rawText = node.params?.get("text")?.toString().orEmpty()
         if (rawText.isEmpty()) {
-            Log.w(TAG, "InputText: 'text' parameter is empty")
-            context.variables["input_success"] = false
+            fail(context, "'text' parameter is empty")
             return node.next
         }
 
-        val text = context.interpolate(rawText)
-        val mode = node.params?.get("mode")?.toString()?.trim()?.lowercase() ?: MODE_A11Y
+        val text = try { context.interpolate(rawText) }
+            catch (_: WorkflowContext.MissingVariableException) { rawText }
 
-        Log.d(TAG, "InputText: mode=$mode, text length=${text.length}")
+        val mode = node.params?.get("mode")?.toString()?.trim()?.lowercase() ?: MODE_A11Y
+        val target = node.params?.get("target")?.toString()?.trim()
+            ?.takeIf { it.isNotEmpty() }
+            ?: node.params?.get("selector")?.toString()?.trim()
+                ?.takeIf { it.isNotEmpty() }
+
+        Log.d(TAG, "InputText: mode=$mode, textLen=${text.length}, target=$target")
 
         val success = when (mode) {
-            MODE_SHELL, MODE_IME -> inputViaShell(text)
-            MODE_A11Y -> inputViaAccessibility(text)
+            MODE_CLIPBOARD -> inputViaClipboard(context, text)
+            MODE_SHELL, MODE_IME -> inputViaShell(text, context)
+            MODE_A11Y -> inputViaAccessibility(text, target)
             else -> {
-                Log.w(TAG, "InputText: unknown mode '$mode', falling back to a11y")
-                inputViaAccessibility(text)
+                context.log("InputText: unknown mode '$mode', using a11y")
+                inputViaAccessibility(text, target)
             }
         }
 
         context.variables["input_success"] = success
         if (success) {
-            context.log("InputText: text input successful (mode=$mode)")
+            context.log("InputText: success (mode=$mode, ${text.length} chars)")
         } else {
-            context.log("InputText: text input failed (mode=$mode)")
+            fail(context, "Input failed via $mode")
         }
-
         return node.next
     }
 
-    /**
-     * 通过 shell `input text` 命令输入文本。
-     * 对单引号进行转义以防止 shell 解析错误。
-     */
-    private suspend fun inputViaShell(text: String): Boolean {
-        val executor = shellExecutor ?: run {
-            Log.e(TAG, "InputText: IShellExecutor not available")
-            return false
-        }
-        val escaped = text.replace("'", "'\\''")
-        return try {
-            val output = executor.exec("input text '$escaped'")
-            !output.contains("Error", ignoreCase = true) &&
-                !output.contains("exception", ignoreCase = true)
-        } catch (e: Exception) {
-            Log.e(TAG, "InputText: shell execution failed", e)
-            false
-        }
-    }
+    // ── A11y mode ──
 
-    /**
-     * 通过无障碍服务的 ACTION_SET_TEXT 在焦点输入节点中输入文本。
-     */
-    private fun inputViaAccessibility(text: String): Boolean {
+    private fun inputViaAccessibility(text: String, target: String?): Boolean {
         val service = provider?.getService() ?: run {
             Log.e(TAG, "InputText: Accessibility service not available")
             return false
         }
 
-        val focusedNode: AccessibilityNodeInfo? = try {
-            service.rootInActiveWindow?.findFocus(AccessibilityNodeInfo.FOCUS_INPUT)
-        } catch (e: Exception) {
-            Log.e(TAG, "InputText: failed to query rootInActiveWindow", e)
-            null
+        val focusedNode: AccessibilityNodeInfo? = if (target != null) {
+            findInputNode(service, target)
+        } else {
+            try {
+                service.rootInActiveWindow?.findFocus(AccessibilityNodeInfo.FOCUS_INPUT)
+            } catch (e: Exception) {
+                Log.e(TAG, "InputText: rootInActiveWindow failed", e)
+                null
+            }
         }
 
         if (focusedNode == null) {
-            Log.w(TAG, "InputText: no focused input field found in active window")
+            Log.w(TAG, "InputText: no input field found (target=${target ?: "focused"})")
             return false
         }
 
@@ -104,7 +96,7 @@ class NodeInputTextHandler(
             val args = Bundle().apply {
                 putCharSequence(
                     AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE,
-                    text,
+                    text.coerceAtMost(8192),
                 )
             }
             val result = focusedNode.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)
@@ -118,10 +110,85 @@ class NodeInputTextHandler(
         }
     }
 
+    /** Find an editable input widget matching selector text or viewId. */
+    private fun findInputNode(
+        service: android.accessibilityservice.AccessibilityService,
+        selector: String,
+    ): AccessibilityNodeInfo? {
+        val roots = mutableListOf<AccessibilityNodeInfo>()
+        val candidates = mutableListOf<AccessibilityNodeInfo>()
+        try {
+            service.rootInActiveWindow?.let { roots.add(it) }
+            for (root in roots) {
+                root.findAccessibilityNodeInfosByText(selector)?.let { candidates.addAll(it) }
+                root.findAccessibilityNodeInfosByViewId(selector)?.let { candidates.addAll(it) }
+            }
+            return candidates.firstOrNull { it.isEditable || it.isFocused }
+        } finally {
+            // Recycle non-matching nodes immediately
+            candidates.forEach { if (!it.isEditable && !it.isFocused) try { it.recycle() } catch (_: Exception) {} }
+            roots.forEach { try { it.recycle() } catch (_: Exception) {} }
+        }
+    }
+
+    // ── Shell mode ──
+
+    private suspend fun inputViaShell(text: String, context: WorkflowContext): Boolean {
+        val executor = shellExecutor ?: run {
+            context.log("InputText: shell mode requires IShellExecutor")
+            return false
+        }
+        // For text up to 200 ASCII chars, use escaped shell input.
+        // Longer text or text with special chars → use clipboard fallback.
+        if (text.length > 200 || text.any { it == '\n' || it == '%' || it == '\\' || it.code > 127 }) {
+            context.log("InputText: text contains special chars, using clipboard fallback")
+            return inputViaClipboard(context, text)
+        }
+        // Escape single quotes for shell safety
+        val escaped = text.replace("'", "'\\''")
+        return try {
+            val output = executor.exec("input text '$escaped'")
+            !output.contains("Error", ignoreCase = true) &&
+                !output.contains("exception", ignoreCase = true)
+        } catch (e: Exception) {
+            Log.e(TAG, "InputText: shell execution failed", e)
+            false
+        }
+    }
+
+    // ── Clipboard fallback ──
+
+    private fun inputViaClipboard(context: WorkflowContext, text: String): Boolean {
+        val service = provider?.getService() ?: return false
+        return try {
+            // Write to clipboard via AccessibilityService
+            val clip = android.content.ClipData.newPlainText("habitat_input", text)
+            val clipManager = context.appContext.getSystemService(android.content.Context.CLIPBOARD_SERVICE)
+                as? android.content.ClipboardManager
+            clipManager?.setPrimaryClip(clip)
+
+            // Send paste key event
+            val ok = service.performGlobalAction(android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_PASTE)
+            Log.d(TAG, "Clipboard paste result=$ok")
+            ok
+        } catch (e: Exception) {
+            Log.e(TAG, "Clipboard input failed", e)
+            false
+        }
+    }
+
+    private fun fail(context: WorkflowContext, error: String) {
+        context.variables["input_success"] = false
+        context.variables["input_error"] = error
+        context.variables["_last_error"] = true
+        context.variables["_last_error_msg"] = "ACTION_INPUT_TEXT: $error"
+    }
+
     companion object {
         private const val TAG = "HabitatInputText"
         const val MODE_A11Y = "a11y"
         const val MODE_SHELL = "shell"
         const val MODE_IME = "ime"
+        const val MODE_CLIPBOARD = "clipboard"
     }
 }
