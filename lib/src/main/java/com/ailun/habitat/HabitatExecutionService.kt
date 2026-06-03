@@ -48,17 +48,21 @@ object HabitatExecutionService {
             return@synchronized StartResult.AlreadyRunning(workflowId)
         }
 
+        // Parse and validate synchronously so callers get InvalidGraph before the coroutine.
+        val graph: WorkflowGraph
+        try {
+            graph = HabitatJson.fromJson(jsonContent)
+        } catch (e: Exception) {
+            val reason = e.message ?: e.javaClass.simpleName
+            onLog?.invoke("Failed to parse workflow JSON: $reason")
+            return@synchronized StartResult.InvalidGraph(workflowId, reason)
+        }
+
         HabitatStateStore.setRunning(workflowId, true)
 
         val job = execScope.launch(start = CoroutineStart.LAZY) {
             try {
                 Log.i(TAG, "=== Start workflow '$workflowId' ===")
-                val graph = try {
-                    HabitatJson.fromJson(jsonContent)
-                } catch (e: Exception) {
-                    onLog?.invoke("Failed to parse workflow JSON: ${e.message}")
-                    return@launch
-                }
                 val executor = HabitatExecutor(factory)
                 val ctx = WorkflowContext(definitionId = workflowId, context = androidContext)
                 initialVars?.forEach { (k, v) -> ctx.variables[k] = v }

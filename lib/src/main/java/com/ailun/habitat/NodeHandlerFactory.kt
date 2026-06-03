@@ -31,7 +31,7 @@ class NodeHandlerFactory(
         register(CONDITION_ADVANCED_SWITCH, NodeAdvancedSwitchHandler(expressionEngine))
         register(ACTION_DELAY, NodeDelayHandler())
         register(ACTION_LOOP, NodeLoopHandler(expressionEngine))
-        register(ACTION_TRY_CATCH, NodeTryCatchHandler())
+        register(ACTION_TRY_CATCH, NodeTryCatchHandlerV2())
         register(ACTION_LOG, NodeLogHandler())
 
         // ── 变量与数据 ──

@@ -166,12 +166,11 @@ fun HabitatDashboard(activity: ComponentActivity) {
             HabitatStateStore.notifyLibraryChanged()
         }
 
-        fun runGraphJson(json: String, targetLogs: MutableList<String>, workflowId: String? = null, isManualRun: Boolean = false) {
+        fun runGraphJson(json: String, targetLogs: MutableList<String>, workflowId: String? = null, bypassEnabledCheck: Boolean = false) {
             val id = workflowId ?: "adhoc_${System.currentTimeMillis()}"
             activity.lifecycleScope.launch(Dispatchers.IO) {
-                // Only the enabled switch blocks triggered runs and manual-enable runs.
-                // Editor test-runs and adhoc executions always proceed regardless of switch state.
-                if (!isManualRun && workflowId != null && !TriggerManager.isWorkflowEnabled(activity.applicationContext, workflowId)) {
+                // enabled switch blocks triggered runs; editor test-runs pass bypassEnabledCheck=true
+                if (!bypassEnabledCheck && workflowId != null && !TriggerManager.isWorkflowEnabled(activity.applicationContext, workflowId)) {
                     withContext(Dispatchers.Main) { targetLogs.add("工作流已禁用，无法执行") }
                     return@launch
                 }
@@ -240,7 +239,7 @@ fun HabitatDashboard(activity: ComponentActivity) {
                             WorkflowRepository.upsert(activity, saved); editingBase = saved; reloadLibrary()
                         },
                         onTestRun = {
-                            runGraphJson(editJson, editLogs, editingBase?.id, isManualRun = false)
+                            runGraphJson(editJson, editLogs, editingBase?.id, bypassEnabledCheck = true)
                         },
                     )
 

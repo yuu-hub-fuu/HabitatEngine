@@ -11,6 +11,7 @@ import com.ailun.habitat.api.ConfirmationResponse
 import com.ailun.habitat.api.IConfirmationProvider
 import com.ailun.habitat.capability.RiskLevel
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.coroutines.resume
 
 /**
@@ -29,31 +30,33 @@ class ComposeConfirmationProvider(
         request: ConfirmationRequest,
         timeoutMs: Long,
     ): ConfirmationResponse {
-        return suspendCancellableCoroutine { continuation ->
-            val activity = getForegroundActivity()
+        // Wait for user response, defaulting to deny after timeout.
+        return withTimeoutOrNull(timeoutMs) {
+            suspendCancellableCoroutine { continuation ->
+                val activity = getForegroundActivity()
 
-            // Build the message
-            val message = buildString {
-                appendLine(request.description)
-                appendLine()
-                appendLine("风险等级: ${riskLabel(request.riskLevel)}")
-                appendLine("节点类型: ${request.nodeType}")
-                if (request.details.isNotEmpty()) {
+                // Build the message
+                val message = buildString {
+                    appendLine(request.description)
                     appendLine()
-                    request.details.forEach { (k, v) ->
-                        if (k != "node_type" && k != "risk_reasons") {
-                            appendLine("$k: $v")
+                    appendLine("风险等级: ${riskLabel(request.riskLevel)}")
+                    appendLine("节点类型: ${request.nodeType}")
+                    if (request.details.isNotEmpty()) {
+                        appendLine()
+                        request.details.forEach { (k, v) ->
+                            if (k != "node_type" && k != "risk_reasons") {
+                                appendLine("$k: $v")
+                            }
                         }
                     }
+                    val reasons = request.details["risk_reasons"]
+                    if (!reasons.isNullOrEmpty()) {
+                        appendLine()
+                        appendLine("风险提示: $reasons")
+                    }
                 }
-                val reasons = request.details["risk_reasons"]
-                if (!reasons.isNullOrEmpty()) {
-                    appendLine()
-                    appendLine("风险提示: $reasons")
-                }
-            }
 
-            val builder = AlertDialog.Builder(activity ?: context)
+                val builder = AlertDialog.Builder(activity ?: context)
                 .setTitle("操作确认")
                 .setMessage(message)
                 .setCancelable(false)
@@ -100,11 +103,13 @@ class ComposeConfirmationProvider(
 
             dialog.show()
 
-            // Handle cancellation (coroutine cancelled)
+            // Handle cancellation (coroutine cancelled or timeout)
             continuation.invokeOnCancellation {
                 dialog.dismiss()
             }
         }
+        } ?: ConfirmationResponse(approved = false, oneTimeToken = request.oneTimeToken,
+            userNote = "Confirmation timed out after ${timeoutMs}ms")
     }
 
     private fun riskLabel(risk: RiskLevel): String = when (risk) {

@@ -207,36 +207,36 @@ class WorkflowContext(
  * data to [android.util.Log] directly, but UI-facing logs always pass through here.
  */
 object LogSanitizer {
-    /** Patterns in order of priority (token-like patterns first to avoid partial match). */
-    private val SENSITIVE_PATTERNS = listOf<Pair<Regex, String>>(
+    data class RedactionRule(val regex: Regex, val replace: (MatchResult) -> String)
+
+    private val RULES = listOf(
         // Authorization headers / Bearer tokens
-        Regex("""Authorization:\s*Bearer\s+\S+""", RegexOption.IGNORE_CASE) to "Authorization: Bearer ***",
-        Regex("""Bearer\s+\S+""") to "Bearer ***",
+        RedactionRule(Regex("""Authorization:\s*Bearer\s+\S+""", RegexOption.IGNORE_CASE)) { "Authorization: Bearer ***" },
+        RedactionRule(Regex("""Bearer\s+\S+""")) { "Bearer ***" },
         // OAuth / API tokens (key=value pattern with known token field names)
-        Regex("""(token|api_key|apiKey|apikey|secret|password|passwd)\s*[:=]\s*\S+""", RegexOption.IGNORE_CASE) to "$1=***",
+        RedactionRule(Regex("""(token|api_key|apiKey|apikey|secret|password|passwd)\s*[:=]\s*\S+""", RegexOption.IGNORE_CASE)) {
+            "${it.groupValues[1]}=***"
+        },
         // Cookies
-        Regex("""[Cc]ookie:\s*[^;]+""") to "Cookie: ***",
+        RedactionRule(Regex("""[Cc]ookie:\s*[^;]+""")) { "Cookie: ***" },
         // Phone numbers (Chinese mobile: 1[3-9]XXXXXXXXX)
-        Regex("""1[3-9]\d{9}""") to "138****0000",
-        // Verification codes (4-8 digit codes frequently logged nearby "code"/"验证码")
-        // Only redact when preceded by context words to avoid false positives
-        Regex("""(?:code|验证码|验证|验证码是)[:= ]*(\d{4,8})""") { mr -> mr.value.replace(mr.groupValues[1], "****") },
+        RedactionRule(Regex("""1[3-9]\d{9}""")) { "138****0000" },
+        // Verification codes — keep context word, redact the digits
+        RedactionRule(Regex("""(?:code|验证码|验证|验证码是)[:= ]*(\d{4,8})""")) { mr ->
+            mr.value.replace(mr.groupValues[1], "****")
+        },
         // Email addresses
-        Regex("""[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}""") to "user@***.***",
+        RedactionRule(Regex("""[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}""")) { "user@***.***" },
         // File paths under /data/ or /sdcard/Android
-        Regex("""(/sdcard/Android/[^\s,;]+)""") to "/sdcard/Android/***",
-        Regex("""(/data/data/[^\s,;]+)""") to "/data/data/***",
-        Regex("""(/data/user/[^\s,;]+)""") to "/data/user/***",
+        RedactionRule(Regex("""(/sdcard/Android/[^\s,;]+)""")) { "/sdcard/Android/***" },
+        RedactionRule(Regex("""(/data/data/[^\s,;]+)""")) { "/data/data/***" },
+        RedactionRule(Regex("""(/data/user/[^\s,;]+)""")) { "/data/user/***" },
     )
 
     fun redact(message: String): String {
         var result = message
-        for ((pattern, replacement) in SENSITIVE_PATTERNS) {
-            result = when (replacement) {
-                is String -> pattern.replace(result, replacement)
-                is (MatchResult) -> String -> pattern.replace(result, replacement)
-                else -> result
-            }
+        for (rule in RULES) {
+            result = rule.regex.replace(result, rule.replace)
         }
         return result
     }

@@ -96,7 +96,7 @@ class NodeInputTextHandler(
             val args = Bundle().apply {
                 putCharSequence(
                     AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE,
-                    text.coerceAtMost(8192),
+                    text.take(8192),
                 )
             }
             val result = focusedNode.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)
@@ -161,15 +161,20 @@ class NodeInputTextHandler(
     private fun inputViaClipboard(context: WorkflowContext, text: String): Boolean {
         val service = provider?.getService() ?: return false
         return try {
-            // Write to clipboard via AccessibilityService
+            // Write to system clipboard
             val clip = android.content.ClipData.newPlainText("habitat_input", text)
             val clipManager = context.appContext.getSystemService(android.content.Context.CLIPBOARD_SERVICE)
                 as? android.content.ClipboardManager
-            clipManager?.setPrimaryClip(clip)
+            clipManager?.setPrimaryClip(clip) ?: return false
 
-            // Send paste key event
-            val ok = service.performGlobalAction(android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_PASTE)
-            Log.d(TAG, "Clipboard paste result=$ok")
+            // Find focused editable node and perform ACTION_PASTE
+            val focusedNode: AccessibilityNodeInfo? = try {
+                service.rootInActiveWindow?.findFocus(AccessibilityNodeInfo.FOCUS_INPUT)
+            } catch (e: Exception) { null }
+
+            val ok = focusedNode?.performAction(AccessibilityNodeInfo.ACTION_PASTE) == true
+            focusedNode?.recycle()
+            Log.d(TAG, "Clipboard paste via ACTION_PASTE: $ok")
             ok
         } catch (e: Exception) {
             Log.e(TAG, "Clipboard input failed", e)

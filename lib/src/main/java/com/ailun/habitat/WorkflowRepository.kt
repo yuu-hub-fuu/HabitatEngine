@@ -25,6 +25,7 @@ object WorkflowRepository {
     private const val KEY_WORKFLOW_PREFIX = "wf_"
     private const val KEY_FLOAT_MOUNTED = "float_mounted_workflow_id"
     private const val KEY_STORE_VERSION = "workflow_store_version"
+    private const val KEY_DEFAULTS_SEEDED = "workflow_defaults_seeded"
     private const val CURRENT_STORE_VERSION = 1
     private const val TAG = "WorkflowRepository"
 
@@ -54,6 +55,7 @@ object WorkflowRepository {
                     }
                     editor.remove(KEY_LEGACY_WORKFLOWS)
                     editor.putInt(KEY_STORE_VERSION, CURRENT_STORE_VERSION)
+                    editor.putBoolean(KEY_DEFAULTS_SEEDED, true)
                     editor.commit()
                     Log.i(TAG, "Migrated ${list.size} workflows to per-key format (v$CURRENT_STORE_VERSION)")
                 } catch (e: Exception) {
@@ -67,6 +69,8 @@ object WorkflowRepository {
                     prefs.edit().putInt(KEY_STORE_VERSION, CURRENT_STORE_VERSION).commit()
                 }
             } else {
+                // Fresh install — no legacy data. Don't set KEY_DEFAULTS_SEEDED yet;
+                // getAll() will seed defaults and set the flag on first call.
                 prefs.edit().putInt(KEY_STORE_VERSION, CURRENT_STORE_VERSION).commit()
             }
         }
@@ -89,8 +93,10 @@ object WorkflowRepository {
                         null
                     }
                 }
-            return if (list.isEmpty()) {
+            val alreadySeeded = prefs.getBoolean(KEY_DEFAULTS_SEEDED, false)
+            return if (list.isEmpty() && !alreadySeeded) {
                 val seeded = defaultWorkflows()
+                prefs.edit().putBoolean(KEY_DEFAULTS_SEEDED, true).commit()
                 saveAllInternalUnsafe(prefs, seeded)
                 seeded
             } else {

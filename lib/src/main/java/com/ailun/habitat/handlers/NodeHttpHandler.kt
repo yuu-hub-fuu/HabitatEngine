@@ -103,36 +103,19 @@ class NodeHttpHandler : INodeHandler {
                     fail(context, "Redirect without Location header")
                     return node.next
                 }
-                val redirectUri = URI(redirectUrl)
+                // Resolve relative redirects against the original URI
+                val redirectUri = uri.resolve(redirectUrl)
                 val redirectBlocked = validateUrl(redirectUri)
                 if (redirectBlocked != null) {
                     fail(context, "Redirect blocked: $redirectBlocked")
                     return node.next
                 }
                 // Follow the redirect with a new connection (single hop only).
-                return followRedirect(redirectUri, method, headers, body, timeout, outputVar, context)
+                return followRedirect(redirectUri, method, headers, body, timeout, outputVar, context, node.next)
             }
 
-            // Read response body (capped)
-            val responseBody = try {
-                connection.inputStream.bufferedReader().use { reader ->
-                    val buf = CharArray(MAX_RESPONSE_BYTES + 1)
-                    val read = reader.read(buf, 0, buf.size)
-                    if (read > MAX_RESPONSE_BYTES) {
-                        String(buf, 0, MAX_RESPONSE_BYTES) + "...[truncated]"
-                    } else if (read >= 0) {
-                        String(buf, 0, read)
-                    } else ""
-                }
-            } catch (e: Exception) {
-                connection.errorStream?.bufferedReader()?.use { reader ->
-                    val buf = CharArray(MAX_RESPONSE_BYTES + 1)
-                    val read = reader.read(buf, 0, buf.size)
-                    if (read > MAX_RESPONSE_BYTES) String(buf, 0, MAX_RESPONSE_BYTES) + "...[truncated]"
-                    else if (read >= 0) String(buf, 0, read)
-                    else ""
-                } ?: ""
-            }
+            // Read response body — loop-read until EOF or MAX_RESPONSE_BYTES
+            val responseBody = readResponseBody(connection)
 
             context.variables["http_status_code"] = statusCode
             context.variables["http_response"] = responseBody
@@ -187,7 +170,7 @@ class NodeHttpHandler : INodeHandler {
     private fun followRedirect(
         uri: URI, method: String, headers: Map<String, String>,
         body: String?, timeout: Int, outputVar: String?,
-        context: WorkflowContext,
+        context: WorkflowContext, nextId: String?,
     ): String? {
         var connection: HttpURLConnection? = null
         try {
@@ -203,11 +186,7 @@ class NodeHttpHandler : INodeHandler {
                 connection.outputStream.use { os: OutputStream -> os.write(body.toByteArray(Charsets.UTF_8)); os.flush() }
             }
             val code = connection.responseCode
-            val resp = connection.inputStream.bufferedReader().use { r ->
-                val buf = CharArray(MAX_RESPONSE_BYTES)
-                val n = r.read(buf, 0, buf.size)
-                if (n > 0) String(buf, 0, n.coerceAtMost(MAX_RESPONSE_BYTES)) else ""
-            }
+            val resp = readResponseBody(connection)
             context.variables["http_status_code"] = code
             context.variables["http_response"] = resp
             context.variables["http_success"] = code in 200..399
@@ -216,7 +195,39 @@ class NodeHttpHandler : INodeHandler {
         } catch (e: Exception) {
             fail(context, e.message ?: "Redirect failed")
         } finally { connection?.disconnect() }
-        return node.next
+        return nextId
+    }
+
+    /** Loop-read response body until EOF or [MAX_RESPONSE_BYTES]. */
+    private fun readResponseBody(connection: HttpURLConnection): String {
+        return try {
+            connection.inputStream.bufferedReader().use { reader ->
+                val sb = StringBuilder()
+                var total = 0
+                val buf = CharArray(4096)
+                var n: Int
+                while (reader.read(buf).also { n = it } != -1 && total < MAX_RESPONSE_BYTES) {
+                    val toWrite = n.coerceAtMost(MAX_RESPONSE_BYTES - total)
+                    sb.append(buf, 0, toWrite)
+                    total += toWrite
+                }
+                if (total >= MAX_RESPONSE_BYTES) sb.append("...[truncated]")
+                sb.toString()
+            }
+        } catch (e: Exception) {
+            connection.errorStream?.bufferedReader()?.use { reader ->
+                val sb = StringBuilder()
+                var total = 0
+                val buf = CharArray(4096)
+                var n: Int
+                while (reader.read(buf).also { n = it } != -1 && total < MAX_RESPONSE_BYTES) {
+                    val toWrite = n.coerceAtMost(MAX_RESPONSE_BYTES - total)
+                    sb.append(buf, 0, toWrite)
+                    total += toWrite
+                }
+                sb.toString()
+            } ?: ""
+        }
     }
 
     /**
