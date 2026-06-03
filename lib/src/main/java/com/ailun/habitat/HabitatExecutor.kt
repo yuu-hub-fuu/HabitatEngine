@@ -169,7 +169,7 @@ class HabitatExecutor(
                 workflowContext.variables["_last_error"] = true
                 workflowContext.variables["_last_error_msg"] = message
                 val errorBranch = node.branches?.get("error")?.trim()?.takeIf { it.isNotEmpty() }
-                if (errorBranch != null) StepOutcome.Continue(errorBranch, NodeResult.failure(message))
+                if (errorBranch != null) StepOutcome.Continue(errorBranch, NodeResult.error(message))
                 else StepOutcome.Stop(message)
             }
 
