@@ -18,41 +18,30 @@ import com.ailun.habitat.confirmation.ConfirmationManager
  * - `target_node`: The node ID that requires confirmation (for logging).
  *
  * Execution:
- * 1. Reads the pre-generated token from `_confirm_token` in params.
- * 2. Calls ConfirmationManager.ensureConfirmed().
- * 3. If approved: proceeds to `next` with the token consumed.
- * 4. If denied: routes to `branches["denied"]` or stops the workflow.
- *
- * Example:
- * ```json
- * {
- *   "id": "confirm1",
- *   "type": "ACTION_CONFIRM",
- *   "params": {
- *     "message": "About to delete files at /sdcard/temp",
- *     "target_node": "delete_files"
- *   },
- *   "next": "delete_files",
- *   "branches": { "denied": "clean_exit" }
- * }
- * ```
+ * 1. Calls ConfirmationManager.ensureConfirmed().
+ * 2. If approved: proceeds to `next`.
+ * 3. If denied or unavailable: routes to `branches["denied"]` or stops the workflow.
  */
 class NodeConfirmHandler(
     private val confirmationManager: ConfirmationManager? = null,
 ) : INodeHandler {
     override suspend fun handle(node: WorkflowNode, context: WorkflowContext): String? {
-        // If no confirmation manager, skip (dev/test mode)
-        if (confirmationManager == null) {
-            context.log("ACTION_CONFIRM: No ConfirmationManager — auto-approving in dev mode")
-            return node.next
-        }
-
         val customMessage = node.params?.get("message")?.toString()
         val targetNode = node.params?.get("target_node")?.toString() ?: node.next ?: "next"
 
         if (customMessage != null) {
             context.log("ACTION_CONFIRM: $customMessage")
         }
+
+        val manager = confirmationManager
+        if (manager == null) {
+            context.log("ACTION_CONFIRM: no ConfirmationManager is available; denying by default")
+            context.variables["confirmation_approved"] = false
+            context.variables["_last_error"] = true
+            context.variables["_last_error_msg"] = "ConfirmationManager unavailable for '$targetNode'"
+            return node.branches?.get("denied")
+        }
+
         context.log("ACTION_CONFIRM: Waiting for user confirmation for '$targetNode'...")
 
         val interpolatedParams = mutableMapOf<String, String>()
@@ -61,15 +50,14 @@ class NodeConfirmHandler(
             interpolatedParams[k] = context.interpolate(raw)
         }
 
-        // Build a synthetic node representing the action being confirmed
-        val confirmed = confirmationManager.ensureConfirmed(node, interpolatedParams)
+        val confirmed = manager.ensureConfirmed(node, interpolatedParams)
 
         return if (confirmed) {
             context.log("ACTION_CONFIRM: User approved — proceeding to $targetNode")
             context.variables["confirmation_approved"] = true
             node.next
         } else {
-            context.log("ACTION_CONFIRM: User DENIED — routing to denied branch or stopping")
+            context.log("ACTION_CONFIRM: User denied — routing to denied branch or stopping")
             context.variables["confirmation_approved"] = false
             node.branches?.get("denied")
         }

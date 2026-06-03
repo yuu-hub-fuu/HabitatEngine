@@ -5,10 +5,12 @@ import com.ailun.habitat.WorkflowGraph
 import com.ailun.habitat.capability.RiskEngine
 import com.ailun.habitat.capability.RiskLevel
 import com.ailun.habitat.graph.GraphVerifier
+import com.ailun.habitat.perception.PerceptionEngine
 
 class ExecutionController(
     private val graphVerifier: GraphVerifier,
     private val riskEngine: RiskEngine = RiskEngine(),
+    private val perceptionEngine: PerceptionEngine? = null,
 ) {
     fun dryRun(graph: WorkflowGraph): DryRunResult {
         val verification = graphVerifier.verify(graph)
@@ -62,24 +64,54 @@ class ExecutionController(
 
     suspend fun shadowRun(graph: WorkflowGraph, context: WorkflowContext): ShadowRunResult {
         val steps = mutableListOf<ShadowStepResult>()
+        val state = perceptionEngine?.capture()
+
         for ((_, node) in graph.nodes ?: emptyMap()) {
             val target = node.params?.get("target")?.toString()
                 ?: node.params?.get("selector")?.toString()
+                ?: node.params?.get("text")?.toString()
+                ?: node.params?.get("desc")?.toString()
+                ?: node.params?.get("id")?.toString()
+
+            val match = if (state != null && !target.isNullOrBlank()) {
+                perceptionEngine.findBestMatch(state, target)
+            } else null
+
+            val requiresTarget = node.type in setOf(
+                "ACTION_CLICK",
+                "ACTION_LONG_PRESS",
+                "ACTION_INPUT_TEXT",
+                "ACTION_FIND_ELEMENT",
+            )
+            val targetFound = when {
+                target.isNullOrBlank() -> !requiresTarget
+                state == null -> false
+                else -> match != null
+            }
+            val confidence = when {
+                target.isNullOrBlank() && !requiresTarget -> 1.0f
+                match != null -> match.confidenceScore
+                else -> 0.0f
+            }
+            val riskReasons = riskEngine.assessNode(node).riskReasons.toMutableList()
+            if (state == null && requiresTarget) riskReasons += "PerceptionEngine unavailable; target cannot be verified"
+            if (!targetFound && !target.isNullOrBlank()) riskReasons += "Target '$target' not found in current screen state"
+
             steps.add(ShadowStepResult(
                 nodeId = node.id ?: "",
                 nodeType = node.type ?: "",
                 targetSelector = target,
-                targetFound = true,   // Placeholder — real impl would query PerceptionEngine
-                targetConfidence = 0.85f,
-                wouldSucceed = true,
-                risks = riskEngine.assessNode(node).riskReasons,
+                targetFound = targetFound,
+                targetConfidence = confidence,
+                wouldSucceed = targetFound,
+                risks = riskReasons,
             ))
         }
         return ShadowRunResult(
             steps = steps,
             overallPredictedSuccess = steps.all { it.wouldSucceed },
             predictedFailures = steps.filter { !it.wouldSucceed }.map {
-                PredictedFailure(it.nodeId, "Low confidence: ${it.targetConfidence}", RiskLevel.LOW)
+                PredictedFailure(it.nodeId, "Target check failed: ${it.targetSelector ?: "no selector"}", RiskLevel.LOW)
             },
         )
     }
