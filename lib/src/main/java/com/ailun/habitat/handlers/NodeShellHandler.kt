@@ -21,9 +21,9 @@ class NodeShellHandler(
     private val shellExecutor: IShellExecutor? = null,
 ) : INodeHandler {
 
-    override suspend fun handle(node: WorkflowNode, context: WorkflowContext): String? {
+    override suspend fun handle(node: WorkflowNode, context: WorkflowContext): NodeResult {
         val rawCommand = node.params?.get("command")?.toString()?.trim().orEmpty()
-        if (rawCommand.isEmpty()) return node.next
+        if (rawCommand.isEmpty()) return node.nextResult()
 
         val command = context.interpolate(rawCommand)
         val modeStr = node.params?.get("mode")?.toString()?.trim()?.lowercase() ?: MODE_AUTO
@@ -50,7 +50,7 @@ class NodeShellHandler(
             context.log("Shell [$modeStr]: $msg")
         }
 
-        return node.next
+        return node.nextResult()
     }
 
     companion object {

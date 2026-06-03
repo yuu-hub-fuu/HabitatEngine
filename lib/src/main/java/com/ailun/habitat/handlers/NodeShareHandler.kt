@@ -17,13 +17,13 @@ import com.ailun.habitat.WorkflowNode
  */
 class NodeShareHandler : INodeHandler {
 
-    override suspend fun handle(node: WorkflowNode, context: WorkflowContext): String? {
-        val params = node.params ?: return node.next
+    override suspend fun handle(node: WorkflowNode, context: WorkflowContext): NodeResult {
+        val params = node.params ?: return node.nextResult()
 
         val rawText = params["text"]?.toString()?.trim() ?: run {
             Log.w(TAG, "No text specified for sharing")
             context.variables["share_success"] = false
-            return node.next
+            return node.nextResult()
         }
 
         val text = context.interpolate(rawText)
@@ -56,7 +56,7 @@ class NodeShareHandler : INodeHandler {
             context.variables["share_error"] = e.message ?: "Unknown error"
         }
 
-        return node.next
+        return node.nextResult()
     }
 
     companion object {

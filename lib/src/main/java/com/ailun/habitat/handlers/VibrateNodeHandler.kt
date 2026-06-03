@@ -10,7 +10,7 @@ import android.os.Vibrator
 import android.os.VibratorManager
 
 class VibrateNodeHandler : INodeHandler {
-    override suspend fun handle(node: WorkflowNode, context: WorkflowContext): String? {
+    override suspend fun handle(node: WorkflowNode, context: WorkflowContext): NodeResult {
         val durationMs = parseLong(node.params?.get("duration"))
             ?: parseLong(node.params?.get("ms"))
             ?: 200L
@@ -41,7 +41,7 @@ class VibrateNodeHandler : INodeHandler {
         } catch (_: Exception) {
             context.log("Vibrate FAILED")
         }
-        return node.next
+        return node.nextResult()
     }
 
     private fun parseLong(value: Any?): Long? = when (value) {

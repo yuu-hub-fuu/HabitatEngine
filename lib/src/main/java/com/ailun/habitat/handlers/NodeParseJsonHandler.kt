@@ -26,8 +26,8 @@ import org.json.JSONTokener
  */
 class NodeParseJsonHandler : INodeHandler {
 
-    override suspend fun handle(node: WorkflowNode, context: WorkflowContext): String? {
-        val params = node.params ?: return node.next
+    override suspend fun handle(node: WorkflowNode, context: WorkflowContext): NodeResult {
+        val params = node.params ?: return node.nextResult()
 
         // Resolve JSON source: prefer inline `json`, fall back to `json_var` variable lookup.
         val rawJson = params["json"]?.toString()?.trim()
@@ -38,11 +38,11 @@ class NodeParseJsonHandler : INodeHandler {
             if (varName != null) {
                 context.getVariable(varName)?.toString() ?: run {
                     failParse(context, "Variable '$varName' not found or has no string value")
-                    return node.next
+                    return node.nextResult()
                 }
             } else {
                 failParse(context, "Neither 'json' nor 'json_var' provided")
-                return node.next
+                return node.nextResult()
             }
         }
         val path = params["path"]?.toString()?.trim()?.takeIf { it.isNotEmpty() }
@@ -58,7 +58,7 @@ class NodeParseJsonHandler : INodeHandler {
                         defaultValue
                     } else {
                         failParse(context, "JSON path '$path' not found")
-                        return node.next
+                        return node.nextResult()
                     }
                 } else {
                     value
@@ -84,7 +84,7 @@ class NodeParseJsonHandler : INodeHandler {
             Log.e(TAG, "JSON parse failed: ${e.message}", e)
             failParse(context, e.message ?: "Unknown parse error")
         }
-        return node.next
+        return node.nextResult()
     }
 
     /**

@@ -16,7 +16,7 @@ import java.util.Locale
  * 输出：current_time、current_year、current_month、current_day、current_hour、current_minute、current_second
  */
 class NodeGetTimeHandler : INodeHandler {
-    override suspend fun handle(node: WorkflowNode, context: WorkflowContext): String? {
+    override suspend fun handle(node: WorkflowNode, context: WorkflowContext): NodeResult {
         val format = node.params?.get("format")?.toString() ?: "yyyy-MM-dd HH:mm:ss"
         val useTimestamp = node.params?.get("timestamp")?.toString()?.equals("true", true) == true
         val outputVar = node.params?.get("output_var")?.toString()?.ifEmpty { null } ?: "current_time"
@@ -41,6 +41,6 @@ class NodeGetTimeHandler : INodeHandler {
         context.variables["current_second"] = cal.get(java.util.Calendar.SECOND)
         context.variables["current_weekday"] = cal.get(java.util.Calendar.DAY_OF_WEEK) - 1 // 0=Sunday
         context.variables["time_success"] = true
-        return node.next
+        return node.nextResult()
     }
 }

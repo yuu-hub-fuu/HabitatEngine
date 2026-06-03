@@ -21,29 +21,29 @@ class NodeFlashlightHandler(
     private val shellExecutor: IShellExecutor? = null,
 ) : INodeHandler {
 
-    override suspend fun handle(node: WorkflowNode, context: WorkflowContext): String? {
+    override suspend fun handle(node: WorkflowNode, context: WorkflowContext): NodeResult {
         val action = node.params?.get("action")?.toString()?.trim()?.lowercase().orEmpty()
         if (action.isEmpty()) {
             Log.e(TAG, "Flashlight failed: 'action' parameter is empty")
-            return node.next
+            return node.nextResult()
         }
 
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
             Log.e(TAG, "Flashlight failed: requires API 23+ (camera2), current is ${Build.VERSION.SDK_INT}")
-            return node.next
+            return node.nextResult()
         }
 
         val cameraManager = context.appContext.getSystemService(Context.CAMERA_SERVICE) as? CameraManager
         if (cameraManager == null) {
             Log.e(TAG, "Flashlight failed: unable to get CameraManager service")
-            return node.next
+            return node.nextResult()
         }
 
         try {
             val cameraId = findFlashCameraId(cameraManager)
             if (cameraId == null) {
                 Log.e(TAG, "Flashlight failed: no camera with flash unit found")
-                return node.next
+                return node.nextResult()
             }
 
             var targetOn: Boolean
@@ -71,7 +71,7 @@ class NodeFlashlightHandler(
                 }
                 else -> {
                     Log.e(TAG, "Flashlight failed: unknown action '$action'")
-                    return node.next
+                    return node.nextResult()
                 }
             }
 
@@ -84,13 +84,13 @@ class NodeFlashlightHandler(
             Log.e(TAG, "Flashlight error for action '$action': ${e.message}", e)
         }
 
-        return node.next
+        return node.nextResult()
     }
 
     /**
      * Find the first rear-facing camera that has a flash unit.
      */
-    private fun findFlashCameraId(cameraManager: CameraManager): String? {
+    private fun findFlashCameraId(cameraManager: CameraManager): NodeResult {
         try {
             for (id in cameraManager.cameraIdList) {
                 val characteristics = cameraManager.getCameraCharacteristics(id)

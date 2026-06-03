@@ -18,20 +18,20 @@ import com.ailun.habitat.WorkflowNode
  */
 class NodeClipboardHandler : INodeHandler {
 
-    override suspend fun handle(node: WorkflowNode, context: WorkflowContext): String? {
-        val params = node.params ?: return node.next
+    override suspend fun handle(node: WorkflowNode, context: WorkflowContext): NodeResult {
+        val params = node.params ?: return node.nextResult()
 
         val action = params["action"]?.toString()?.trim()?.lowercase() ?: run {
             Log.w(TAG, "No action specified")
             context.variables["clipboard_success"] = false
-            return node.next
+            return node.nextResult()
         }
 
         val clipboardManager = context.appContext.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
         if (clipboardManager == null) {
             Log.e(TAG, "ClipboardManager not available")
             context.variables["clipboard_success"] = false
-            return node.next
+            return node.nextResult()
         }
 
         try {
@@ -77,7 +77,7 @@ class NodeClipboardHandler : INodeHandler {
             context.variables["clipboard_error"] = e.message ?: "Unknown error"
         }
 
-        return node.next
+        return node.nextResult()
     }
 
     companion object {

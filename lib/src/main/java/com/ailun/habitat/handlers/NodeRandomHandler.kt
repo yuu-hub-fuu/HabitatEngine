@@ -15,7 +15,7 @@ import kotlin.random.Random
  * 输出：random_value
  */
 class NodeRandomHandler : INodeHandler {
-    override suspend fun handle(node: WorkflowNode, context: WorkflowContext): String? {
+    override suspend fun handle(node: WorkflowNode, context: WorkflowContext): NodeResult {
         val min = (node.params?.get("min") as? Number)?.toInt() ?: 0
         val max = (node.params?.get("max") as? Number)?.toInt() ?: 100
         val type = node.params?.get("type")?.toString()?.lowercase() ?: "int"
@@ -28,6 +28,6 @@ class NodeRandomHandler : INodeHandler {
         }
         context.variables["random_success"] = true
         context.log("Random type=$type min=$min max=$max → ${context.variables[outputVar]}")
-        return node.next
+        return node.nextResult()
     }
 }

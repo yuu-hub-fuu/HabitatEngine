@@ -22,20 +22,20 @@ import kotlin.coroutines.resume
  */
 class NodeTtsHandler : INodeHandler {
 
-    override suspend fun handle(node: WorkflowNode, context: WorkflowContext): String? {
-        val params = node.params ?: return node.next
+    override suspend fun handle(node: WorkflowNode, context: WorkflowContext): NodeResult {
+        val params = node.params ?: return node.nextResult()
 
         val rawText = params["text"]?.toString()?.trim() ?: run {
             Log.w(TAG, "No text specified")
             context.variables["tts_success"] = false
-            return node.next
+            return node.nextResult()
         }
 
         val text = context.interpolate(rawText)
         if (text.isEmpty()) {
             Log.w(TAG, "Text is empty after interpolation")
             context.variables["tts_success"] = false
-            return node.next
+            return node.nextResult()
         }
 
         val languageCode = params["language"]?.toString()?.trim()?.lowercase()
@@ -166,7 +166,7 @@ class NodeTtsHandler : INodeHandler {
             }
         }
 
-        return node.next
+        return node.nextResult()
     }
 
     companion object {

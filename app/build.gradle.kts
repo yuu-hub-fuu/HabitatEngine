@@ -13,17 +13,24 @@ val keystoreProperties = Properties().apply {
         load(FileInputStream(keystorePropertiesFile))
     }
 }
+val hasReleaseKeystore = keystorePropertiesFile.exists()
+    && keystoreProperties["storeFile"] != null
+    && keystoreProperties["storePassword"] != null
+    && keystoreProperties["keyAlias"] != null
+    && keystoreProperties["keyPassword"] != null
 
 android {
     namespace = "com.ailun.habitat"
     compileSdk = 36
 
     signingConfigs {
-        create("release") {
-            storeFile = rootProject.file(keystoreProperties["storeFile"] as String)
-            storePassword = keystoreProperties["storePassword"] as String
-            keyAlias = keystoreProperties["keyAlias"] as String
-            keyPassword = keystoreProperties["keyPassword"] as String
+        if (hasReleaseKeystore) {
+            create("release") {
+                storeFile = rootProject.file(keystoreProperties["storeFile"] as String)
+                storePassword = keystoreProperties["storePassword"] as String
+                keyAlias = keystoreProperties["keyAlias"] as String
+                keyPassword = keystoreProperties["keyPassword"] as String
+            }
         }
     }
 
@@ -37,7 +44,9 @@ android {
 
     buildTypes {
         release {
-            signingConfig = signingConfigs.getByName("release")
+            if (hasReleaseKeystore) {
+                signingConfig = signingConfigs.getByName("release")
+            }
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
@@ -82,7 +91,6 @@ android {
 dependencies {
     implementation(project(":lib"))
 
-    // Compose
     val composeBom = platform("androidx.compose:compose-bom:2025.12.01")
     implementation(composeBom)
     implementation("androidx.compose.ui:ui")
@@ -92,30 +100,22 @@ dependencies {
     implementation("androidx.compose.material:material-icons-extended")
     implementation("androidx.activity:activity-compose:1.12.2")
 
-    // AndroidX
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)
     implementation(libs.androidx.foundation)
     implementation(libs.androidx.foundation.layout)
     implementation(libs.material)
 
-    // Coroutines
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.kotlinx.coroutines.android)
 
-    // Gson
     implementation(libs.gson)
 
-    // Shizuku
     implementation(libs.shizuku.api)
     implementation(libs.shizuku.provider)
 
-    // LiteRT-LM
     implementation(libs.litertlm.android)
 
-    // Local Broadcast Manager (deprecated but needed for NotificationService)
     implementation("androidx.localbroadcastmanager:localbroadcastmanager:1.1.0")
-
-    // DocumentFile
     implementation("androidx.documentfile:documentfile:1.1.0")
 }

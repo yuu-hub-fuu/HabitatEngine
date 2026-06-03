@@ -38,6 +38,6 @@ class WorkflowGraph {
      * stricter validation with the actual NodeHandlerFactory registry.
      */
     fun validate() {
-        WorkflowGraphValidator.validate(this).requireValid()
+        GraphVerifier.verify(this).throwIfInvalid()
     }
 }

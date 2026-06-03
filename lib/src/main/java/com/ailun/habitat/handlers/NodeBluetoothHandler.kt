@@ -18,19 +18,19 @@ class NodeBluetoothHandler(
     private val shellExecutor: IShellExecutor? = null,
 ) : INodeHandler {
 
-    override suspend fun handle(node: WorkflowNode, context: WorkflowContext): String? {
+    override suspend fun handle(node: WorkflowNode, context: WorkflowContext): NodeResult {
         val action = node.params?.get("action")?.toString()?.trim()?.lowercase().orEmpty()
         if (action.isEmpty()) {
             Log.e(TAG, "Bluetooth failed: 'action' parameter is empty")
             context.variables["bluetooth_success"] = false
-            return node.next
+            return node.nextResult()
         }
 
         val bluetoothAdapter = BluetoothAdapter.getDefaultAdapter()
         if (bluetoothAdapter == null) {
             Log.e(TAG, "Bluetooth failed: device does not support Bluetooth")
             context.variables["bluetooth_success"] = false
-            return node.next
+            return node.nextResult()
         }
 
         var success = false
@@ -81,7 +81,7 @@ class NodeBluetoothHandler(
                 else -> {
                     Log.e(TAG, "Bluetooth failed: unknown action '$action'")
                     context.variables["bluetooth_success"] = false
-                    return node.next
+                    return node.nextResult()
                 }
             }
         } catch (e: Exception) {
@@ -90,7 +90,7 @@ class NodeBluetoothHandler(
         }
 
         context.variables["bluetooth_success"] = success
-        return node.next
+        return node.nextResult()
     }
 
     companion object {

@@ -8,7 +8,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 class ToastNodeHandler : INodeHandler {
-    override suspend fun handle(node: WorkflowNode, context: WorkflowContext): String? {
+    override suspend fun handle(node: WorkflowNode, context: WorkflowContext): NodeResult {
         val rawMessage = node.params?.get("message")?.toString().orEmpty()
         val message = context.interpolate(rawMessage)
         try {
@@ -19,6 +19,6 @@ class ToastNodeHandler : INodeHandler {
         } catch (_: Exception) {
             context.log("Toast FAILED (no UI context): $message")
         }
-        return node.next
+        return node.nextResult()
     }
 }

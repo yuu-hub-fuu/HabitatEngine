@@ -23,19 +23,19 @@ import java.io.File
  */
 class NodeFileOperationHandler : INodeHandler {
 
-    override suspend fun handle(node: WorkflowNode, context: WorkflowContext): String? {
-        val params = node.params ?: return node.next
+    override suspend fun handle(node: WorkflowNode, context: WorkflowContext): NodeResult {
+        val params = node.params ?: return node.nextResult()
 
         val action = params["action"]?.toString()?.trim()?.lowercase() ?: run {
             Log.w(TAG, "No action specified")
             fail(context, "No action specified")
-            return node.next
+            return node.nextResult()
         }
 
         val rawPath = params["path"]?.toString()?.trim() ?: run {
             Log.w(TAG, "No path specified")
             fail(context, "No path specified")
-            return node.next
+            return node.nextResult()
         }
 
         val path = context.interpolate(rawPath)
@@ -47,7 +47,7 @@ class NodeFileOperationHandler : INodeHandler {
         if (validationError != null) {
             Log.w(TAG, "Path rejected: $canonicalPath — $validationError")
             fail(context, validationError)
-            return node.next
+            return node.nextResult()
         }
 
         try {
@@ -67,12 +67,12 @@ class NodeFileOperationHandler : INodeHandler {
             fail(context, e.message ?: "Unknown error")
         }
 
-        return node.next
+        return node.nextResult()
     }
 
     // ── Path validation ──
 
-    private fun validatePath(path: String, action: String): String? {
+    private fun validatePath(path: String, action: String): NodeResult {
         // Traversal protection.
         if (path.contains("..")) return "Traversal detected in path"
 

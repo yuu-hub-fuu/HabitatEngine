@@ -12,11 +12,11 @@ import com.ailun.habitat.WorkflowNode
  * `output_var` — 输出变量名
  */
 class NodeTextOperationHandler : INodeHandler {
-    override suspend fun handle(node: WorkflowNode, context: WorkflowContext): String? {
-        val params = node.params ?: return node.next
+    override suspend fun handle(node: WorkflowNode, context: WorkflowContext): NodeResult {
+        val params = node.params ?: return node.nextResult()
 
         val op = (params["action"]?.toString() ?: params["operation"]?.toString())
-            ?.trim()?.lowercase() ?: return node.next
+            ?.trim()?.lowercase() ?: return node.nextResult()
 
         val inputKey = (params["input"]?.toString() ?: params["source_var"]?.toString())?.trim().orEmpty()
         val sourceValue = context.getVariable(inputKey)?.toString() ?: inputKey
@@ -48,6 +48,6 @@ class NodeTextOperationHandler : INodeHandler {
 
         context.putVariable(outputVar, result)
         context.log("TextOp $op '$inputKey' → '$result' (→ $outputVar)")
-        return node.next
+        return node.nextResult()
     }
 }

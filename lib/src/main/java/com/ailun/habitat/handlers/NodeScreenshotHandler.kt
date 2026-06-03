@@ -16,8 +16,8 @@ class NodeScreenshotHandler(
     private val shellExecutor: IShellExecutor? = null
 ) : INodeHandler {
 
-    override suspend fun handle(node: WorkflowNode, context: WorkflowContext): String? {
-        val params = node.params ?: return node.next
+    override suspend fun handle(node: WorkflowNode, context: WorkflowContext): NodeResult {
+        val params = node.params ?: return node.nextResult()
 
         val outputVar = params["output_var"]?.toString()?.trim()?.ifEmpty { null }
         val format = params["format"]?.toString()?.trim()?.lowercase() ?: "base64"
@@ -45,7 +45,7 @@ class NodeScreenshotHandler(
                     Log.e(TAG, "Screenshot shell error: $result")
                     context.variables["screenshot_success"] = false
                     context.variables["screenshot_error"] = "Shell: $result"
-                    return node.next
+                    return node.nextResult()
                 }
             } else {
                 context.log("Screenshot: no shell executor, trying Runtime.exec")
@@ -60,7 +60,7 @@ class NodeScreenshotHandler(
                     context.log("Screenshot: Runtime.exec failed: ${e.message}")
                     context.variables["screenshot_success"] = false
                     context.variables["screenshot_error"] = "exec: ${e.message}"
-                    return node.next
+                    return node.nextResult()
                 }
             }
 
@@ -75,7 +75,7 @@ class NodeScreenshotHandler(
                 Log.e(TAG, "Screenshot: no output file at $outFile")
                 context.variables["screenshot_success"] = false
                 context.variables["screenshot_error"] = "文件未生成 ($outFile)"
-                return node.next
+                return node.nextResult()
             }
 
             val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
@@ -116,7 +116,7 @@ class NodeScreenshotHandler(
             context.log("Screenshot: exception ${e.message}")
         }
 
-        return node.next
+        return node.nextResult()
     }
 
     companion object {

@@ -19,12 +19,12 @@ class NodeLaunchAppHandler(
     private val shellExecutor: IShellExecutor? = null,
 ) : INodeHandler {
 
-    override suspend fun handle(node: WorkflowNode, context: WorkflowContext): String? {
+    override suspend fun handle(node: WorkflowNode, context: WorkflowContext): NodeResult {
         val packageName = node.params?.get("package_name")?.toString()?.trim().orEmpty()
         if (packageName.isEmpty()) {
             Log.e(TAG, "Launch app failed: 'package_name' parameter is empty")
             context.variables["launch_success"] = false
-            return node.next
+            return node.nextResult()
         }
 
         val activityName = node.params?.get("activity")?.toString()?.trim()
@@ -45,7 +45,7 @@ class NodeLaunchAppHandler(
             if (intent == null) {
                 Log.e(TAG, "Launch app failed: unable to resolve intent for package '$packageName'")
                 context.variables["launch_success"] = false
-                return node.next
+                return node.nextResult()
             }
 
             context.appContext.startActivity(intent)
@@ -56,7 +56,7 @@ class NodeLaunchAppHandler(
             context.variables["launch_success"] = false
         }
 
-        return node.next
+        return node.nextResult()
     }
 
     companion object {

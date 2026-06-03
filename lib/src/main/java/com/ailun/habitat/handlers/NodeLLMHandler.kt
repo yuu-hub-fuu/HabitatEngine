@@ -16,7 +16,7 @@ import kotlinx.coroutines.withContext
  */
 class NodeLLMHandler(private val llmService: ILLMService? = null) : INodeHandler {
 
-    override suspend fun handle(node: WorkflowNode, context: WorkflowContext): String? {
+    override suspend fun handle(node: WorkflowNode, context: WorkflowContext): NodeResult {
         val params = node.params.orEmpty()
         val prompt = params["prompt"]?.toString()?.trim()
         require(!prompt.isNullOrEmpty()) { "ACTION_AI_CHAT requires non-empty prompt" }
@@ -36,6 +36,6 @@ class NodeLLMHandler(private val llmService: ILLMService? = null) : INodeHandler
         context.putVariable(outputVar, result)
         context.putVariable("llm_success", true)
         context.log("NodeLLMHandler: inference completed, result saved to $outputVar")
-        return node.next
+        return node.nextResult()
     }
 }

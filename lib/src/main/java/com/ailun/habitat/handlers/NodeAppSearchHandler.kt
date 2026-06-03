@@ -21,8 +21,8 @@ import org.json.JSONObject
  */
 class NodeAppSearchHandler : INodeHandler {
 
-    override suspend fun handle(node: WorkflowNode, context: WorkflowContext): String? {
-        val params = node.params ?: return node.next
+    override suspend fun handle(node: WorkflowNode, context: WorkflowContext): NodeResult {
+        val params = node.params ?: return node.nextResult()
 
         val rawQuery = params["query"]?.toString()?.trim()
         val query = rawQuery?.let { context.interpolate(it) }?.lowercase()
@@ -100,7 +100,7 @@ class NodeAppSearchHandler : INodeHandler {
             context.variables["app_search_error"] = e.message ?: "Unknown error"
         }
 
-        return node.next
+        return node.nextResult()
     }
 
     companion object {

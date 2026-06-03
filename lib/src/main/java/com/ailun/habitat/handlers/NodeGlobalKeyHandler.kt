@@ -28,25 +28,25 @@ class NodeGlobalKeyHandler(
     private val shellExecutor: IShellExecutor?,
 ) : INodeHandler {
 
-    override suspend fun handle(node: WorkflowNode, context: WorkflowContext): String? {
+    override suspend fun handle(node: WorkflowNode, context: WorkflowContext): NodeResult {
         val key = node.params?.get("key")?.toString()?.trim()?.lowercase().orEmpty()
         if (key.isEmpty()) {
             Log.w(TAG, "GlobalKey: 'key' parameter is empty")
             context.variables["key_success"] = false
-            return node.next
+            return node.nextResult()
         }
 
         val keyCode = KEY_MAP[key]
         if (keyCode == null) {
             Log.w(TAG, "GlobalKey: unknown key '$key', valid keys: ${KEY_MAP.keys}")
             context.variables["key_success"] = false
-            return node.next
+            return node.nextResult()
         }
 
         val executor = shellExecutor ?: run {
             Log.e(TAG, "GlobalKey: IShellExecutor not available")
             context.variables["key_success"] = false
-            return node.next
+            return node.nextResult()
         }
 
         Log.d(TAG, "GlobalKey: sending keyevent $keyCode for key '$key'")
@@ -67,7 +67,7 @@ class NodeGlobalKeyHandler(
             context.log("GlobalKey: key '$key' (code=$keyCode) execution failed")
         }
 
-        return node.next
+        return node.nextResult()
     }
 
     companion object {

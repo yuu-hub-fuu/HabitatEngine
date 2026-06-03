@@ -23,10 +23,10 @@ import com.ailun.habitat.WorkflowNode
  * ```
  */
 class NodeSetVariableHandler : INodeHandler {
-    override suspend fun handle(node: WorkflowNode, context: WorkflowContext): String? {
+    override suspend fun handle(node: WorkflowNode, context: WorkflowContext): NodeResult {
         val key = (node.params?.get("name")?.toString()?.trim()?.takeIf { it.isNotEmpty() }
             ?: node.params?.get("key")?.toString()?.trim())
-            ?: return node.next
+            ?: return node.nextResult()
         
         val rawValue = node.params?.get("value")
         val typeStr = node.params?.get("type")?.toString()?.trim()?.lowercase() ?: "auto"
@@ -46,7 +46,7 @@ class NodeSetVariableHandler : INodeHandler {
         
         context.putVariable(key, value)
         context.log("SetVariable $key = $value (type=$typeStr)")
-        return node.next
+        return node.nextResult()
     }
 }
 

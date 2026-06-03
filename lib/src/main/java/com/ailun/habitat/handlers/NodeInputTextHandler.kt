@@ -31,11 +31,11 @@ class NodeInputTextHandler(
     private val shellExecutor: IShellExecutor?,
 ) : INodeHandler {
 
-    override suspend fun handle(node: WorkflowNode, context: WorkflowContext): String? {
+    override suspend fun handle(node: WorkflowNode, context: WorkflowContext): NodeResult {
         val rawText = node.params?.get("text")?.toString().orEmpty()
         if (rawText.isEmpty()) {
             fail(context, "'text' parameter is empty")
-            return node.next
+            return node.nextResult()
         }
 
         val text = try { context.interpolate(rawText) }
@@ -65,7 +65,7 @@ class NodeInputTextHandler(
         } else {
             fail(context, "Input failed via $mode")
         }
-        return node.next
+        return node.nextResult()
     }
 
     // ── A11y mode ──

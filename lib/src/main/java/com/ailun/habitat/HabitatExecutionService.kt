@@ -48,7 +48,7 @@ object HabitatExecutionService {
             return@synchronized StartResult.AlreadyRunning(workflowId)
         }
 
-        // Parse and validate synchronously so callers get InvalidGraph before the coroutine.
+        // Parse, dry-run inspect, and validate synchronously.
         val graph: WorkflowGraph
         try {
             graph = HabitatJson.fromJson(jsonContent)
@@ -56,6 +56,12 @@ object HabitatExecutionService {
             val reason = e.message ?: e.javaClass.simpleName
             onLog?.invoke("Failed to parse workflow JSON: $reason")
             return@synchronized StartResult.InvalidGraph(workflowId, reason)
+        }
+
+        val dry = DryRunEngine.inspect(graph)
+        dry.throwIfInvalid()
+        dry.issues.filter { it.level == GraphIssue.Level.WARNING }.forEach {
+            onLog?.invoke("DryRun warning: ${it.message}")
         }
 
         HabitatStateStore.setRunning(workflowId, true)

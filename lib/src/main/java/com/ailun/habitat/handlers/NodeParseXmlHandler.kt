@@ -20,13 +20,13 @@ import javax.xml.parsers.DocumentBuilderFactory
  */
 class NodeParseXmlHandler : INodeHandler {
 
-    override suspend fun handle(node: WorkflowNode, context: WorkflowContext): String? {
-        val params = node.params ?: return node.next
+    override suspend fun handle(node: WorkflowNode, context: WorkflowContext): NodeResult {
+        val params = node.params ?: return node.nextResult()
 
         val rawXml = params["xml"]?.toString()?.trim() ?: run {
             Log.w(TAG, "No XML string provided")
             context.variables["xml_success"] = false
-            return node.next
+            return node.nextResult()
         }
 
         val xmlString = context.interpolate(rawXml)
@@ -94,7 +94,7 @@ class NodeParseXmlHandler : INodeHandler {
                     context.variables[resultKey] = fallbackResult
                     context.variables["xml_success"] = true
                     Log.i(TAG, "XML parsed via regex fallback: $fallbackResult")
-                    return node.next
+                    return node.nextResult()
                 }
             } catch (_: Exception) {
                 // Regex fallback also failed
@@ -104,7 +104,7 @@ class NodeParseXmlHandler : INodeHandler {
             context.variables["xml_error"] = e.message ?: "Unknown error"
         }
 
-        return node.next
+        return node.nextResult()
     }
 
     /**
@@ -164,7 +164,7 @@ class NodeParseXmlHandler : INodeHandler {
     /**
      * Simple regex-based XML extraction as fallback.
      */
-    private fun regexExtract(xml: String, tag: String, attribute: String?): String? {
+    private fun regexExtract(xml: String, tag: String, attribute: String?): NodeResult {
         val lastTag = tag.split(".").lastOrNull() ?: tag
 
         val textPattern = Regex("<$lastTag[^>]*>(.*?)</$lastTag>", RegexOption.DOT_MATCHES_ALL)

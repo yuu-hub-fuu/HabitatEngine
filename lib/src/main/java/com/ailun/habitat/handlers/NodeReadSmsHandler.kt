@@ -11,7 +11,7 @@ class NodeReadSmsHandler(
     private val shellExecutor: IShellExecutor? = null,
 ) : INodeHandler {
 
-    override suspend fun handle(node: WorkflowNode, context: WorkflowContext): String? {
+    override suspend fun handle(node: WorkflowNode, context: WorkflowContext): NodeResult {
         val app = context.appContext
         val p = node.params
         val filterBy = p?.get("filter_by")?.toString()?.trim()?.lowercase() ?: FILTER_LATEST
@@ -38,7 +38,7 @@ class NodeReadSmsHandler(
                 val bodyIdx = cursor.getColumnIndex(Telephony.Sms.BODY)
                 if (addressIdx >= 0 && bodyIdx >= 0) {
                     if (scanCursor(cursor, addressIdx, bodyIdx, maxScan, filterBy, senderFilter, contentFilter, extractCode, context)) {
-                        return node.next
+                        return node.nextResult()
                     }
                 }
             }
@@ -55,12 +55,12 @@ class NodeReadSmsHandler(
         if (shell != null) {
             context.log("ReadSMS: trying shell fallback...")
             val result = readSmsViaShell(shell, maxScan, filterBy, senderFilter, contentFilter, extractCode, context)
-            if (result) return node.next
+            if (result) return node.nextResult()
         }
 
         context.variables["sms_found"] = false
         context.variables["sms_error"] = "Cannot access SMS — grant READ_SMS or enable Shizuku"
-        return node.next
+        return node.nextResult()
     }
 
     private fun scanCursor(

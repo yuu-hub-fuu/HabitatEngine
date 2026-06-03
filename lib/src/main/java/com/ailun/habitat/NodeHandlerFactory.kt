@@ -27,11 +27,15 @@ class NodeHandlerFactory(
 
     init {
         // ── 逻辑控制 ──
-        register(CONDITION_SWITCH, SwitchNodeHandler(expressionEngine))
-        register(CONDITION_ADVANCED_SWITCH, NodeAdvancedSwitchHandler(expressionEngine))
+        register(CONDITION_SWITCH, SwitchNodeHandler())
+        register(CONDITION_ADVANCED_SWITCH, NodeAdvancedSwitchHandler())
         register(ACTION_DELAY, NodeDelayHandler())
-        register(ACTION_LOOP, NodeLoopHandler(expressionEngine))
-        register(ACTION_TRY_CATCH, NodeTryCatchHandlerV2())
+        register(ACTION_LOOP, NodeLoopHandler())
+        register(ACTION_TRY_CATCH, NodeTryCatchHandler())
+        register(ACTION_SWITCH, NodeSwitchHandler())
+        register(ACTION_REGEX, NodeRegexHandler())
+        register(ACTION_WAIT_FOR, NodeWaitForHandler(a11y))
+        register(ACTION_FOR_EACH, NodeLoopHandler())
         register(ACTION_LOG, NodeLogHandler())
 
         // ── 变量与数据 ──
@@ -89,7 +93,7 @@ class NodeHandlerFactory(
         register(ACTION_VIBRATE, VibrateNodeHandler())
 
         // ── 安全 ──
-        register(ACTION_CONFIRM, NodeConfirmHandler(confirmationManager))
+        register(ACTION_CONFIRM, NodeConfirmHandler())
 
         // ── 技能 ──
         register(ACTION_CALL_SKILL, NodeCallSkillHandler(subGraphExecutor = { graph, ctx ->
@@ -154,5 +158,9 @@ class NodeHandlerFactory(
         const val ACTION_CONFIRM = "ACTION_CONFIRM"
         const val ACTION_AI_CHAT = "ACTION_AI_CHAT"
         const val ACTION_CALL_SKILL = "ACTION_CALL_SKILL"
+        const val ACTION_REGEX = "ACTION_REGEX"
+        const val ACTION_WAIT_FOR = "ACTION_WAIT_FOR"
+        const val ACTION_SWITCH = "ACTION_SWITCH"
+        const val ACTION_FOR_EACH = "ACTION_FOR_EACH"
     }
 }

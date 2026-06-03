@@ -13,8 +13,8 @@ import com.ailun.habitat.WorkflowNode
  * - `level`：可选，`debug`|`info`|`warn`|`error`，默认 info
  */
 class NodeLogHandler : INodeHandler {
-    override suspend fun handle(node: WorkflowNode, context: WorkflowContext): String? {
-        val params = node.params ?: return node.next
+    override suspend fun handle(node: WorkflowNode, context: WorkflowContext): NodeResult {
+        val params = node.params ?: return node.nextResult()
         
         val rawMessage = params["message"]?.toString() ?: ""
         val level = params["level"]?.toString()?.trim()?.lowercase() ?: "info"
@@ -23,7 +23,7 @@ class NodeLogHandler : INodeHandler {
         val message = context.interpolate(rawMessage)
         
         log(level, TAG, message)
-        return node.next
+        return node.nextResult()
     }
     
     private fun log(level: String, tag: String, msg: String) {

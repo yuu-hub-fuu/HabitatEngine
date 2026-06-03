@@ -23,7 +23,7 @@ class NodeClickHandler(
     private val a11yProvider: IAccessibilityProvider? = null,
 ) : INodeHandler {
 
-    override suspend fun handle(node: WorkflowNode, context: WorkflowContext): String? {
+    override suspend fun handle(node: WorkflowNode, context: WorkflowContext): NodeResult {
         val params = node.params ?: emptyMap()
         val service = a11yProvider?.getService()
 
@@ -33,7 +33,7 @@ class NodeClickHandler(
             context.variables["_last_error"] = true
             context.variables["_last_error_msg"] = "ACTION_CLICK: Accessibility Service not running"
             Log.e(TAG, "Click failed: Accessibility Service not running")
-            return node.next
+            return node.nextResult()
         }
 
         // ── Coordinate mode: explicit x, y params ──
@@ -41,23 +41,23 @@ class NodeClickHandler(
         val yParam = params["y"]
         if (xParam != null && yParam != null) {
             val x = (xParam as? Number)?.toInt() ?: xParam.toString().toIntOrNull() ?: run {
-                fail(context, "Invalid x coordinate: $xParam"); return node.next
+                fail(context, "Invalid x coordinate: $xParam"); return node.nextResult()
             }
             val y = (yParam as? Number)?.toInt() ?: yParam.toString().toIntOrNull() ?: run {
-                fail(context, "Invalid y coordinate: $yParam"); return node.next
+                fail(context, "Invalid y coordinate: $yParam"); return node.nextResult()
             }
             val ok = HabitatAccessibility.dispatchTap(service, x, y)
             context.variables["click_success"] = ok
             if (!ok) fail(context, "Coordinate tap failed at ($x, $y)")
             Log.i(TAG, "Coordinate click ($x, $y): $ok")
-            return node.next
+            return node.nextResult()
         }
 
         // ── Target mode: text or viewId ──
         val raw = params["target"]?.toString()?.trim().orEmpty()
         if (raw.isEmpty()) {
             fail(context, "'target' parameter is empty (provide 'target' or 'x'/'y')")
-            return node.next
+            return node.nextResult()
         }
 
         val target = try {
@@ -74,7 +74,7 @@ class NodeClickHandler(
         context.variables["click_success"] = success
         if (!success) fail(context, "No clickable node found for '$target'")
         Log.i(TAG, "Click result for '$target': $success")
-        return node.next
+        return node.nextResult()
     }
 
     private fun performA11yClick(

@@ -12,7 +12,7 @@ class NodeAppInfoHandler(
     private val a11yProvider: IAccessibilityProvider? = null
 ) : INodeHandler {
 
-    override suspend fun handle(node: WorkflowNode, context: WorkflowContext): String? {
+    override suspend fun handle(node: WorkflowNode, context: WorkflowContext): NodeResult {
         val outputVar = node.params?.get("output_var")?.toString()?.trim()
             ?.ifEmpty { null } ?: "current_app"
         val activityVar = node.params?.get("activity_var")?.toString()?.trim()
@@ -38,6 +38,6 @@ class NodeAppInfoHandler(
         context.putVariable(outputVar, packageName)
         context.putVariable(activityVar, className)
         context.log("AppInfo: $packageName / $className")
-        return node.next
+        return node.nextResult()
     }
 }

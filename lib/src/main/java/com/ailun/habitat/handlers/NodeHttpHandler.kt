@@ -30,13 +30,13 @@ import java.net.URL
  */
 class NodeHttpHandler : INodeHandler {
 
-    override suspend fun handle(node: WorkflowNode, context: WorkflowContext): String? {
-        val params = node.params ?: return node.next
+    override suspend fun handle(node: WorkflowNode, context: WorkflowContext): NodeResult {
+        val params = node.params ?: return node.nextResult()
 
         val rawUrl = params["url"]?.toString()?.trim() ?: run {
             Log.w(TAG, "No URL provided")
             fail(context, "No URL provided")
-            return node.next
+            return node.nextResult()
         }
 
         val url = context.interpolate(rawUrl)
@@ -52,13 +52,13 @@ class NodeHttpHandler : INodeHandler {
             uri = URI(url)
         } catch (e: Exception) {
             fail(context, "Invalid URL: ${e.message}")
-            return node.next
+            return node.nextResult()
         }
         val blocked = validateUrl(uri)
         if (blocked != null) {
             Log.w(TAG, "URL blocked: $url — $blocked")
             fail(context, blocked)
-            return node.next
+            return node.nextResult()
         }
 
         var connection: HttpURLConnection? = null
@@ -101,14 +101,14 @@ class NodeHttpHandler : INodeHandler {
                 connection.disconnect(); connection = null
                 if (redirectUrl == null) {
                     fail(context, "Redirect without Location header")
-                    return node.next
+                    return node.nextResult()
                 }
                 // Resolve relative redirects against the original URI
                 val redirectUri = uri.resolve(redirectUrl)
                 val redirectBlocked = validateUrl(redirectUri)
                 if (redirectBlocked != null) {
                     fail(context, "Redirect blocked: $redirectBlocked")
-                    return node.next
+                    return node.nextResult()
                 }
                 // Follow the redirect with a new connection (single hop only).
                 return followRedirect(redirectUri, method, headers, body, timeout, outputVar, context, node.next)
@@ -132,10 +132,10 @@ class NodeHttpHandler : INodeHandler {
             connection?.disconnect()
         }
 
-        return node.next
+        return node.nextResult()
     }
 
-    private fun validateUrl(uri: URI): String? {
+    private fun validateUrl(uri: URI): NodeResult {
         val scheme = uri.scheme?.lowercase()
 
         // Reject non-http schemes.
@@ -171,7 +171,7 @@ class NodeHttpHandler : INodeHandler {
         uri: URI, method: String, headers: Map<String, String>,
         body: String?, timeout: Int, outputVar: String?,
         context: WorkflowContext, nextId: String?,
-    ): String? {
+    ): NodeResult {
         var connection: HttpURLConnection? = null
         try {
             connection = (uri.toURL().openConnection() as HttpURLConnection).apply {

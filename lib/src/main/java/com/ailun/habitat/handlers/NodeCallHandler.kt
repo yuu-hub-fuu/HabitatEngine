@@ -19,12 +19,12 @@ class NodeCallHandler(
     private val shellExecutor: IShellExecutor? = null,
 ) : INodeHandler {
 
-    override suspend fun handle(node: WorkflowNode, context: WorkflowContext): String? {
+    override suspend fun handle(node: WorkflowNode, context: WorkflowContext): NodeResult {
         val rawNumber = node.params?.get("phone_number")?.toString()?.trim().orEmpty()
         if (rawNumber.isEmpty()) {
             Log.e(TAG, "Call failed: 'phone_number' parameter is empty")
             context.variables["call_success"] = false
-            return node.next
+            return node.nextResult()
         }
 
         val phoneNumber = context.interpolate(rawNumber)
@@ -43,7 +43,7 @@ class NodeCallHandler(
             context.variables["call_success"] = false
         }
 
-        return node.next
+        return node.nextResult()
     }
 
     companion object {

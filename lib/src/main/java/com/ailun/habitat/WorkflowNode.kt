@@ -49,4 +49,18 @@ class WorkflowNode {
 
     /** Declared capabilities required by this node (for capability tokens). */
     var capabilities: List<String>? = null
+
+    // ── pre/post conditions and risk (Phase 1) ──
+
+    @SerializedName("pre_condition")
+    var preCondition: String? = null
+
+    @SerializedName("post_condition")
+    var postCondition: String? = null
+
+    @SerializedName("risk_level")
+    var riskLevel: String? = null
+
+    @SerializedName("required_capabilities")
+    var requiredCapabilities: List<String>? = null
 }

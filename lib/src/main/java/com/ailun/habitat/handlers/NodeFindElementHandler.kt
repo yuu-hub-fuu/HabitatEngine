@@ -36,12 +36,12 @@ class NodeFindElementHandler(
     private val shellExecutor: IShellExecutor?,
 ) : INodeHandler {
 
-    override suspend fun handle(node: WorkflowNode, context: WorkflowContext): String? {
+    override suspend fun handle(node: WorkflowNode, context: WorkflowContext): NodeResult {
         val rawSelector = node.params?.get("selector")?.toString()?.trim().orEmpty()
         if (rawSelector.isEmpty()) {
             Log.w(TAG, "FindElement: 'selector' parameter is empty")
             context.variables["element_found"] = false
-            return node.next
+            return node.nextResult()
         }
 
         val selector = context.interpolate(rawSelector)
@@ -53,7 +53,7 @@ class NodeFindElementHandler(
         val service = provider?.getService() ?: run {
             Log.e(TAG, "FindElement: Accessibility service not available")
             context.variables["element_found"] = false
-            return node.next
+            return node.nextResult()
         }
 
         Log.d(TAG, "FindElement: selector='$selector', mode=$searchMode, timeout=${timeoutMs}ms")
@@ -108,7 +108,7 @@ class NodeFindElementHandler(
             context.log("FindElement: no element found for selector '$selector'")
         }
 
-        return node.next
+        return node.nextResult()
     }
 
     /**

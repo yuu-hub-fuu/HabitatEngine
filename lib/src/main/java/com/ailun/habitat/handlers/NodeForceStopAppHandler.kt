@@ -20,12 +20,12 @@ class NodeForceStopAppHandler(
     private val shellExecutor: IShellExecutor? = null,
 ) : INodeHandler {
 
-    override suspend fun handle(node: WorkflowNode, context: WorkflowContext): String? {
+    override suspend fun handle(node: WorkflowNode, context: WorkflowContext): NodeResult {
         val packageName = node.params?.get("package_name")?.toString()?.trim().orEmpty()
         if (packageName.isEmpty()) {
             Log.e(TAG, "Force stop failed: 'package_name' parameter is empty")
             context.variables["force_stop_success"] = false
-            return node.next
+            return node.nextResult()
         }
 
         var success = false
@@ -83,7 +83,7 @@ class NodeForceStopAppHandler(
             Log.e(TAG, "Failed to force-stop app: $packageName")
         }
 
-        return node.next
+        return node.nextResult()
     }
 
     companion object {

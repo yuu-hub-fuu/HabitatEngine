@@ -12,10 +12,10 @@ import com.ailun.habitat.WorkflowNode
  * `output_var` — 输出变量名（默认 "math_result"）
  */
 class NodeMathHandler : INodeHandler {
-    override suspend fun handle(node: WorkflowNode, context: WorkflowContext): String? {
-        val params = node.params ?: return node.next
+    override suspend fun handle(node: WorkflowNode, context: WorkflowContext): NodeResult {
+        val params = node.params ?: return node.nextResult()
 
-        val operation = params["operation"]?.toString()?.trim()?.lowercase() ?: return node.next
+        val operation = params["operation"]?.toString()?.trim()?.lowercase() ?: return node.nextResult()
         val outputVar = params["output_var"]?.toString()?.trim()?.ifEmpty { null } ?: "math_result"
 
         val a = resolveValue(params["a"], context)
@@ -39,7 +39,7 @@ class NodeMathHandler : INodeHandler {
 
         context.putVariable(outputVar, result)
         context.log("Math $a $operation $b = $result → $outputVar")
-        return node.next
+        return node.nextResult()
     }
 
     private fun resolveValue(raw: Any?, ctx: WorkflowContext): Double? {

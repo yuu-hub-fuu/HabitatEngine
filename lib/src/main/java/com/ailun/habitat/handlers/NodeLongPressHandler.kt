@@ -30,12 +30,12 @@ class NodeLongPressHandler(
     private val shellExecutor: IShellExecutor?,
 ) : INodeHandler {
 
-    override suspend fun handle(node: WorkflowNode, context: WorkflowContext): String? {
+    override suspend fun handle(node: WorkflowNode, context: WorkflowContext): NodeResult {
         val rawTarget = node.params?.get("target")?.toString()?.trim().orEmpty()
         if (rawTarget.isEmpty()) {
             Log.w(TAG, "LongPress: 'target' parameter is empty")
             context.variables["long_press_success"] = false
-            return node.next
+            return node.nextResult()
         }
 
         val target = context.interpolate(rawTarget)
@@ -44,7 +44,7 @@ class NodeLongPressHandler(
         val service = provider?.getService() ?: run {
             Log.e(TAG, "LongPress: Accessibility service not available")
             context.variables["long_press_success"] = false
-            return node.next
+            return node.nextResult()
         }
 
         Log.d(TAG, "LongPress: target='$target', duration=${durationMs}ms")
@@ -73,7 +73,7 @@ class NodeLongPressHandler(
             context.log("LongPress: operation failed on '$target'")
         }
 
-        return node.next
+        return node.nextResult()
     }
 
     /**

@@ -24,8 +24,8 @@ class NodeForegroundAppHandler(
     private val shellExecutor: IShellExecutor? = null
 ) : INodeHandler {
 
-    override suspend fun handle(node: WorkflowNode, context: WorkflowContext): String? {
-        val params = node.params ?: return node.next
+    override suspend fun handle(node: WorkflowNode, context: WorkflowContext): NodeResult {
+        val params = node.params ?: return node.nextResult()
 
         val outputVar = params["output_var"]?.toString()?.trim()?.ifEmpty { null }
             ?: "foreground_package"
@@ -141,7 +141,7 @@ class NodeForegroundAppHandler(
             context.variables["foreground_class"] = "unknown"
         }
 
-        return node.next
+        return node.nextResult()
     }
 
     /**
@@ -187,7 +187,7 @@ class NodeForegroundAppHandler(
      * Parse a dumpsys recents line like:
      * "Recent #0: TaskInfo{... type=home} ..."
      */
-    private fun parseRecentsLine(line: String): String? {
+    private fun parseRecentsLine(line: String): NodeResult {
         // Try to extract package info from the recents line
         val regex = Regex("""component=ComponentInfo\{(\S+)/(\S+)}""")
         val match = regex.find(line) ?: return null

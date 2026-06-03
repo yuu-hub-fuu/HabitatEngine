@@ -19,12 +19,12 @@ class NodeScreenWakeHandler(
     private val shellExecutor: IShellExecutor? = null,
 ) : INodeHandler {
 
-    override suspend fun handle(node: WorkflowNode, context: WorkflowContext): String? {
+    override suspend fun handle(node: WorkflowNode, context: WorkflowContext): NodeResult {
         val action = node.params?.get("action")?.toString()?.trim()?.lowercase().orEmpty()
         if (action.isEmpty()) {
             Log.e(TAG, "Screen wake failed: 'action' parameter is empty")
             context.variables["screen_wake_success"] = false
-            return node.next
+            return node.nextResult()
         }
 
         val password = node.params?.get("password")?.toString()?.trim()
@@ -45,7 +45,7 @@ class NodeScreenWakeHandler(
             else -> {
                 Log.e(TAG, "Screen wake failed: unknown action '$action'")
                 context.variables["screen_wake_success"] = false
-                return node.next
+                return node.nextResult()
             }
         }
 
@@ -56,7 +56,7 @@ class NodeScreenWakeHandler(
             Log.e(TAG, "Screen action '$action' failed")
         }
 
-        return node.next
+        return node.nextResult()
     }
 
     private suspend fun wakeScreen(context: WorkflowContext): Boolean {

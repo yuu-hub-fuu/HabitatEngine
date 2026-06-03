@@ -19,7 +19,7 @@ class NodeDelayHandler : INodeHandler {
         const val MAX_DELAY_MS = 600_000L // 10 minutes
     }
 
-    override suspend fun handle(node: WorkflowNode, context: WorkflowContext): String? {
+    override suspend fun handle(node: WorkflowNode, context: WorkflowContext): NodeResult {
         val raw = node.params?.get("millis") ?: node.params?.get("ms")
 
         val ms = when (raw) {
@@ -29,14 +29,14 @@ class NodeDelayHandler : INodeHandler {
                     context.log("ACTION_DELAY: invalid millis value '$raw'; failing")
                     context.variables["_last_error"] = true
                     context.variables["_last_error_msg"] = "Invalid delay value: $raw"
-                    return node.next
+                    return node.nextResult()
                 }
             }
             else -> {
                 context.log("ACTION_DELAY: missing or invalid millis/ms param; failing")
                 context.variables["_last_error"] = true
                 context.variables["_last_error_msg"] = "Missing delay parameter"
-                return node.next
+                return node.nextResult()
             }
         }
 
@@ -44,7 +44,7 @@ class NodeDelayHandler : INodeHandler {
             context.log("ACTION_DELAY: negative delay ($ms ms); failing")
             context.variables["_last_error"] = true
             context.variables["_last_error_msg"] = "Negative delay: $ms"
-            return node.next
+            return node.nextResult()
         }
 
         val effective = if (ms > MAX_DELAY_MS) {
@@ -58,6 +58,6 @@ class NodeDelayHandler : INodeHandler {
         }
 
         if (effective > 0) delay(effective)
-        return node.next
+        return node.nextResult()
     }
 }

@@ -15,12 +15,12 @@ class NodeWifiHandler(
     private val shellExecutor: IShellExecutor? = null,
 ) : INodeHandler {
 
-    override suspend fun handle(node: WorkflowNode, context: WorkflowContext): String? {
+    override suspend fun handle(node: WorkflowNode, context: WorkflowContext): NodeResult {
         val action = node.params?.get("action")?.toString()?.trim()?.lowercase().orEmpty()
         if (action.isEmpty()) {
             Log.e(TAG, "WiFi failed: 'action' parameter is empty")
             context.variables["wifi_success"] = false
-            return node.next
+            return node.nextResult()
         }
 
         @Suppress("DEPRECATION")
@@ -28,7 +28,7 @@ class NodeWifiHandler(
         if (wifiManager == null) {
             Log.e(TAG, "WiFi failed: unable to get WifiManager service")
             context.variables["wifi_success"] = false
-            return node.next
+            return node.nextResult()
         }
 
         var success = false
@@ -64,7 +64,7 @@ class NodeWifiHandler(
                 else -> {
                     Log.e(TAG, "WiFi failed: unknown action '$action'")
                     context.variables["wifi_success"] = false
-                    return node.next
+                    return node.nextResult()
                 }
             }
         } catch (e: Exception) {
@@ -73,7 +73,7 @@ class NodeWifiHandler(
         }
 
         context.variables["wifi_success"] = success
-        return node.next
+        return node.nextResult()
     }
 
     private suspend fun setWifiEnabled(context: WorkflowContext, wifiManager: WifiManager, enable: Boolean): Boolean {

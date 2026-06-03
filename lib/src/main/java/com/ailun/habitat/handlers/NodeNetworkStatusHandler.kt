@@ -19,7 +19,7 @@ import java.net.NetworkInterface
  *       wifi_ip, mobile_ip, network_success
  */
 class NodeNetworkStatusHandler : INodeHandler {
-    override suspend fun handle(node: WorkflowNode, context: WorkflowContext): String? {
+    override suspend fun handle(node: WorkflowNode, context: WorkflowContext): NodeResult {
         val action = node.params?.get("action")?.toString()?.lowercase() ?: "status"
         val cm = context.appContext.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
 
@@ -50,7 +50,7 @@ class NodeNetworkStatusHandler : INodeHandler {
             context.variables["network_success"] = false
         }
         context.log("NetworkStatus connected=${context.variables["network_connected"]} type=${context.variables["network_type"]}")
-        return node.next
+        return node.nextResult()
     }
 
     private fun getWifiIp(context: WorkflowContext): String {

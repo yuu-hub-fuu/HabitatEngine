@@ -15,7 +15,7 @@ class NodeReadScreenHandler(
     private val a11yProvider: IAccessibilityProvider? = null
 ) : INodeHandler {
 
-    override suspend fun handle(node: WorkflowNode, context: WorkflowContext): String? {
+    override suspend fun handle(node: WorkflowNode, context: WorkflowContext): NodeResult {
         val rawKeyword = node.params?.get("keyword")?.toString().orEmpty()
         val keyword = context.interpolate(rawKeyword)
         val outputVar = node.params?.get("output_var")?.toString().orEmpty()
@@ -24,7 +24,7 @@ class NodeReadScreenHandler(
             ?: run {
                 context.log("ReadScreen Error: Accessibility not running")
                 context.variables["screen_data"] = false
-                return node.next
+                return node.nextResult()
             }
 
         val roots = mutableListOf<AccessibilityNodeInfo>()
@@ -55,7 +55,7 @@ class NodeReadScreenHandler(
         if (roots.isEmpty()) {
             context.variables["screen_data"] = false
             if (outputVar.isNotEmpty()) context.putVariable(outputVar, "")
-            return node.next
+            return node.nextResult()
         }
 
         var found = false
@@ -77,7 +77,7 @@ class NodeReadScreenHandler(
         } finally {
             roots.forEach { it.recycle() }
         }
-        return node.next
+        return node.nextResult()
     }
 
     private fun containsKeywordRecursive(node: AccessibilityNodeInfo, keyword: String): Boolean {
