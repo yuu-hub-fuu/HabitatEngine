@@ -42,9 +42,9 @@ class ConfirmationManager(
     /**
      * Ensure the user has confirmed execution of this node.
      *
-     * - If no provider is registered, confirmation is skipped (test/dev mode).
      * - If the node's risk level is below CONFIRMATION_THRESHOLD, skip confirmation.
      * - If the node already has an approved token, skip confirmation.
+     * - If confirmation is required but no provider is registered, deny by default.
      * - Otherwise, request user confirmation and store the approved token.
      *
      * @param node The node about to be executed.
@@ -55,18 +55,18 @@ class ConfirmationManager(
         node: WorkflowNode,
         interpolatedParams: Map<String, String> = emptyMap(),
     ): Boolean {
-        // No provider → skip confirmation (dev/test mode)
-        if (provider == null) return true
-
         // Check if the node has a pre-approved token from compiler
         val preToken = node.params?.get("_confirm_token")?.toString()
         if (preToken != null && validateAndConsume(preToken)) {
             return true
         }
 
-        // Check risk level
+        // Check risk level before provider availability. Low-risk nodes do not need UI confirmation.
         val assessment = riskEngine.assessNode(node)
         if (!assessment.requiresConfirmation) return true
+
+        // Confirmation-required nodes must fail closed when no provider is available.
+        val confirmationProvider = provider ?: return false
 
         // Build request
         val request = ConfirmationRequest(
@@ -82,7 +82,7 @@ class ConfirmationManager(
             oneTimeToken = generateToken(),
         )
 
-        val response = provider.requestConfirmation(request)
+        val response = confirmationProvider.requestConfirmation(request)
         return if (response.approved && response.oneTimeToken == request.oneTimeToken) {
             approvedTokens.add(response.oneTimeToken)
             true
