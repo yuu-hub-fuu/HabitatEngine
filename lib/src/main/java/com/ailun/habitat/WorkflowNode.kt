@@ -5,13 +5,18 @@ import com.google.gson.annotations.SerializedName
 /**
  * 邻接表中的一条节点记录（Gson 友好可变模型）。
  *
- * Fields added in v2 (all nullable, backward compatible):
- * - [postCondition]: per-node success condition (Phase 2)
- * - [guards]: guard conditions that must pass before executing this node (Phase 2)
- * - [rollbackNodeId]: node to jump to on failure (Phase 4)
- * - [compensateAction]: compensating action on failure (Phase 4)
- * - [requireConfirmation]: auto-insert confirmation gate (Phase 1-2)
- * - [capabilities]: declared required capabilities (Phase 1)
+ * ### Enforced fields (executed by HabitatExecutor):
+ * - [preCondition] — evaluated before handler execution
+ * - [postCondition] — evaluated after handler success
+ * - [requiredCapabilities] — checked against graph capabilities
+ * - [requireConfirmation] — compiled by PlanCompiler into ACTION_CONFIRM nodes
+ *
+ * ### Reserved fields (schema-only, not yet enforced):
+ * - [guards] — structured guard conditions (use [preCondition] for now)
+ * - [rollbackNodeId] — for future TryCatch rollback support
+ * - [compensateAction] — for future compensating transactions
+ * - [capabilities] — for future node-level capability tokens
+ * - [riskLevel] — for future per-node risk overrides
  */
 class WorkflowNode {
     var id: String? = null

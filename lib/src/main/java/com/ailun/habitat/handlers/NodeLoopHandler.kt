@@ -1,15 +1,17 @@
 package com.ailun.habitat.handlers
 
-import com.ailun.habitat.ExpressionEngine
 import com.ailun.habitat.INodeHandler
 import com.ailun.habitat.NodeResult
 import com.ailun.habitat.WorkflowContext
 import com.ailun.habitat.WorkflowNode
+import com.ailun.habitat.expression.ExpressionEngine
 
 /**
  * [ACTION_LOOP]：简单循环控制（计数或条件）。
  */
 class NodeLoopHandler : INodeHandler {
+    private val exprEngine = ExpressionEngine()
+
     override suspend fun handle(node: WorkflowNode, context: WorkflowContext): NodeResult {
         val params = node.params ?: return NodeResult.success(node.next)
         val mode = params["mode"]?.toString()?.trim()?.lowercase() ?: "count"
@@ -52,7 +54,7 @@ class NodeLoopHandler : INodeHandler {
             return node.next
         }
 
-        val conditionTrue = ExpressionEngine.eval(conditionExpr, context).value
+        val conditionTrue = exprEngine.evaluate(conditionExpr, context).booleanResult
         return if (conditionTrue) {
             context.putVariable(iterVar, iterCount + 1)
             params["body_node"]?.toString()

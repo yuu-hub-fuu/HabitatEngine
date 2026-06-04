@@ -58,10 +58,17 @@ object HabitatExecutionService {
             return@synchronized StartResult.InvalidGraph(workflowId, reason)
         }
 
-        val dry = DryRunEngine.inspect(graph)
-        dry.throwIfInvalid()
-        dry.issues.filter { it.level == GraphIssue.Level.WARNING }.forEach {
-            onLog?.invoke("DryRun warning: ${it.message}")
+        // Dry-run inspection with unified try-catch
+        val dryWarnings: List<String>
+        try {
+            val dry = DryRunEngine.inspect(graph, factory)
+            dry.throwIfInvalid()
+            dryWarnings = dry.issues.filter { it.level == GraphIssue.Level.WARNING }.map { it.message }
+            dryWarnings.forEach { onLog?.invoke("DryRun warning: $it") }
+        } catch (e: Exception) {
+            val reason = e.message ?: e.javaClass.simpleName
+            onLog?.invoke("Graph verification failed: $reason")
+            return@synchronized StartResult.InvalidGraph(workflowId, reason)
         }
 
         HabitatStateStore.setRunning(workflowId, true)
@@ -90,7 +97,7 @@ object HabitatExecutionService {
 
         activeJobs[workflowId] = job
         job.start()
-        StartResult.Started(workflowId)
+        StartResult.Started(workflowId, dryWarnings)
     }
 
     /** 停止工作流执行 */
@@ -109,7 +116,7 @@ object HabitatExecutionService {
  */
 sealed class StartResult(val workflowId: String) {
     /** Workflow was accepted and execution has begun. */
-    data class Started(val id: String) : StartResult(id)
+    data class Started(val id: String, val warnings: List<String> = emptyList()) : StartResult(id)
 
     /** A run with this ID is already in progress. */
     data class AlreadyRunning(val id: String) : StartResult(id)

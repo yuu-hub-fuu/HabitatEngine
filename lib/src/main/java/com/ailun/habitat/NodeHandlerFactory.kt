@@ -4,7 +4,6 @@ import com.ailun.habitat.ai.ILLMService
 import com.ailun.habitat.api.IAccessibilityProvider
 import com.ailun.habitat.api.IShellExecutor
 import com.ailun.habitat.confirmation.ConfirmationManager
-import com.ailun.habitat.expression.ExpressionEngine
 import com.ailun.habitat.handlers.*
 
 import java.util.concurrent.ConcurrentHashMap
@@ -18,12 +17,14 @@ class NodeHandlerFactory(
 
     private val registry = ConcurrentHashMap<String, INodeHandler>()
 
-    /** Shared expression engine used by switch and loop handlers. */
-    val expressionEngine = ExpressionEngine()
-
-    /** Confirmation manager for ACTION_CONFIRM. Can be set after construction. */
+    /** Confirmation manager for ACTION_CONFIRM. Must be set before execution. */
     var confirmationManager: ConfirmationManager? = confirmationManager
         private set
+
+    /** Public setter to bind a UI confirmation provider after construction. */
+    fun setConfirmationManager(manager: ConfirmationManager?) {
+        confirmationManager = manager
+    }
 
     init {
         // ── 逻辑控制 ──
@@ -35,7 +36,7 @@ class NodeHandlerFactory(
         register(ACTION_SWITCH, NodeSwitchHandler())
         register(ACTION_REGEX, NodeRegexHandler())
         register(ACTION_WAIT_FOR, NodeWaitForHandler(a11y))
-        register(ACTION_FOR_EACH, NodeLoopHandler())
+        register(ACTION_FOR_EACH, NodeForEachHandler())
         register(ACTION_LOG, NodeLogHandler())
 
         // ── 变量与数据 ──
@@ -44,7 +45,6 @@ class NodeHandlerFactory(
         register(ACTION_MATH, NodeMathHandler())
         register(ACTION_CLIPBOARD, NodeClipboardHandler())
         register(ACTION_PARSE_JSON, NodeParseJsonHandler())
-        // ACTION_PARSE_XML pending rewrite
         register(ACTION_BASE64, NodeBase64Handler())
         register(ACTION_FILE_OPERATION, NodeFileOperationHandler())
 
@@ -118,7 +118,6 @@ class NodeHandlerFactory(
         const val ACTION_MATH = "ACTION_MATH"
         const val ACTION_CLIPBOARD = "ACTION_CLIPBOARD"
         const val ACTION_PARSE_JSON = "ACTION_PARSE_JSON"
-        const val ACTION_PARSE_XML = "ACTION_PARSE_XML"
         const val ACTION_BASE64 = "ACTION_BASE64"
         const val ACTION_FILE_OPERATION = "ACTION_FILE_OPERATION"
         const val ACTION_CLICK = "ACTION_CLICK"
@@ -135,7 +134,6 @@ class NodeHandlerFactory(
         const val ACTION_BLUETOOTH = "ACTION_BLUETOOTH"
         const val ACTION_VOLUME = "ACTION_VOLUME"
         const val ACTION_BRIGHTNESS = "ACTION_BRIGHTNESS"
-        const val ACTION_FLASHLIGHT = "ACTION_FLASHLIGHT"
         const val ACTION_CALL_PHONE = "ACTION_CALL_PHONE"
         const val ACTION_SHARE = "ACTION_SHARE"
         const val ACTION_SCREENSHOT = "ACTION_SCREENSHOT"
@@ -147,7 +145,6 @@ class NodeHandlerFactory(
         const val ACTION_READ_SCREEN = "ACTION_READ_SCREEN"
         const val ACTION_READ_SMS = "ACTION_READ_SMS"
         const val ACTION_GET_APP_INFO = "ACTION_GET_APP_INFO"
-        const val ACTION_FOREGROUND_APP = "ACTION_FOREGROUND_APP"
         const val ACTION_APP_SEARCH = "ACTION_APP_SEARCH"
         const val ACTION_TOAST = "ACTION_TOAST"
         const val ACTION_VIBRATE = "ACTION_VIBRATE"

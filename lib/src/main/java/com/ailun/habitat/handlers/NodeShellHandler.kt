@@ -2,6 +2,7 @@ package com.ailun.habitat.handlers
 
 import com.ailun.habitat.INodeHandler
 import com.ailun.habitat.NodeResult
+import com.ailun.habitat.RuntimeVars
 import com.ailun.habitat.WorkflowContext
 import com.ailun.habitat.WorkflowNode
 import com.ailun.habitat.api.IShellExecutor
@@ -35,23 +36,32 @@ class NodeShellHandler(
         if (executor != null) {
             val output = executor.exec(command, asRoot)
             val success = !output.startsWith("Error:")
-            context.variables["shell_output"] = output
-            context.variables["shell_success"] = success
-            context.variables["shell_exit_code"] = if (success) 0 else -1
-            context.log("Shell [$modeStr]: command=${command.take(60)}... → exit=${if (success) 0 else -1}")
+            val exitCode = if (success) 0 else -1
+            return NodeResult.success(
+                next = node.next,
+                vars = mapOf(
+                    RuntimeVars.SHELL_OUTPUT to output,
+                    RuntimeVars.SHELL_SUCCESS to success,
+                    RuntimeVars.SHELL_EXIT_CODE to exitCode,
+                )
+            ).also {
+                context.log("Shell [$modeStr]: command=${command.take(60)}... → exit=$exitCode")
+            }
         } else {
             // Shell execution requires Shizuku or equivalent IShellExecutor.
             // No silent Runtime.exec fallback — callers must grant proper permissions.
             val msg = "No IShellExecutor available; grant Shizuku permission to run shell commands"
-            context.variables["shell_output"] = "Error: $msg"
-            context.variables["shell_success"] = false
-            context.variables["shell_exit_code"] = -1
-            context.variables["_last_error"] = true
-            context.variables["_last_error_msg"] = msg
             context.log("Shell [$modeStr]: $msg")
+            return NodeResult.failure(
+                next = node.branches?.get("error") ?: node.next,
+                error = msg,
+                vars = mapOf(
+                    RuntimeVars.SHELL_OUTPUT to "Error: $msg",
+                    RuntimeVars.SHELL_SUCCESS to false,
+                    RuntimeVars.SHELL_EXIT_CODE to -1,
+                )
+            )
         }
-
-        return NodeResult.success(node.next)
     }
 
     companion object {

@@ -241,7 +241,7 @@ object HabitatSamples {
   "nodes": {
     "a1": {
       "id": "a1",
-      "type": "ACTION_FOREGROUND_APP",
+      "type": "ACTION_GET_APP_INFO",
       "params": { "output_var": "current_app" },
       "next": "a2"
     },

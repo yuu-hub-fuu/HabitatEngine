@@ -11,8 +11,8 @@ data class NodeResult(
         fun success(next: String?, vars: Map<String, Any?> = emptyMap()): NodeResult =
             NodeResult(success = true, nextNodeId = next, outputVariables = vars)
 
-        fun failure(next: String?, error: String): NodeResult =
-            NodeResult(success = false, nextNodeId = next, errorMessage = error)
+        fun failure(next: String?, error: String, vars: Map<String, Any?> = emptyMap()): NodeResult =
+            NodeResult(success = false, nextNodeId = next, errorMessage = error, outputVariables = vars)
     }
 }
 

@@ -3,6 +3,7 @@ package com.ailun.habitat
 import android.content.Context
 import android.util.Log
 import com.ailun.habitat.execution.DiffEntry
+import com.ailun.habitat.expression.IVariableProvider
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
@@ -27,7 +28,7 @@ class WorkflowContext(
      * 而不是被替换成字符串 "null"。默认 true。
      */
     private val strictInterpolation: Boolean = true,
-) {
+) : IVariableProvider {
     val appContext: Context = context.applicationContext
 
     /** 线程安全的变量存储 */
@@ -37,7 +38,7 @@ class WorkflowContext(
     var onLog: ((String) -> Unit)? = null
 
     fun putVariable(key: String, value: Any?) { variables[key] = value }
-    fun getVariable(key: String): Any? = variables[key]
+    override fun getVariable(key: String): Any? = variables[key]
 
     /**
      * 将字符串中的 `${var_name}` 替换为变量的实际值。

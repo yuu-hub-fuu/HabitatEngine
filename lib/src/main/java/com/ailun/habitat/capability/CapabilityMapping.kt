@@ -49,7 +49,6 @@ object CapabilityMapping {
         "ACTION_MATH" to emptySet(),
         "ACTION_CLIPBOARD" to setOf(Capability.CLIPBOARD_READ, Capability.CLIPBOARD_WRITE),
         "ACTION_PARSE_JSON" to emptySet(),
-        "ACTION_PARSE_XML" to emptySet(),
         "ACTION_BASE64" to emptySet(),
         "ACTION_FILE_OPERATION" to setOf(Capability.FILE_READ, Capability.FILE_WRITE, Capability.FILE_DELETE),
 
@@ -70,7 +69,6 @@ object CapabilityMapping {
         "ACTION_BLUETOOTH" to setOf(Capability.BLUETOOTH_CONTROL),
         "ACTION_VOLUME" to setOf(Capability.VOLUME_CONTROL),
         "ACTION_BRIGHTNESS" to setOf(Capability.BRIGHTNESS_CONTROL),
-        "ACTION_FLASHLIGHT" to setOf(Capability.FLASHLIGHT_CONTROL),
         "ACTION_CALL_PHONE" to setOf(Capability.PHONE_CALL),
         "ACTION_SHARE" to setOf(Capability.SHARE),
 
@@ -90,7 +88,6 @@ object CapabilityMapping {
         "ACTION_READ_SCREEN" to setOf(Capability.SCREEN_READ),
         "ACTION_READ_SMS" to setOf(Capability.SMS_READ),
         "ACTION_GET_APP_INFO" to setOf(Capability.SCREEN_READ),
-        "ACTION_FOREGROUND_APP" to setOf(Capability.SCREEN_READ),
         "ACTION_APP_SEARCH" to emptySet(),
 
         // UI
@@ -123,7 +120,6 @@ object CapabilityMapping {
         "ACTION_MATH" to RiskLevel.LOW,
         "ACTION_CLIPBOARD" to RiskLevel.MEDIUM,
         "ACTION_PARSE_JSON" to RiskLevel.LOW,
-        "ACTION_PARSE_XML" to RiskLevel.LOW,
         "ACTION_BASE64" to RiskLevel.LOW,
         "ACTION_FILE_OPERATION" to RiskLevel.HIGH,  // Can delete files
 
@@ -142,7 +138,6 @@ object CapabilityMapping {
         "ACTION_BLUETOOTH" to RiskLevel.LOW,
         "ACTION_VOLUME" to RiskLevel.LOW,
         "ACTION_BRIGHTNESS" to RiskLevel.LOW,
-        "ACTION_FLASHLIGHT" to RiskLevel.LOW,
         "ACTION_CALL_PHONE" to RiskLevel.HIGH,
         "ACTION_SHARE" to RiskLevel.MEDIUM,
 
@@ -158,7 +153,6 @@ object CapabilityMapping {
         "ACTION_READ_SCREEN" to RiskLevel.LOW,
         "ACTION_READ_SMS" to RiskLevel.HIGH,         // Privacy-sensitive
         "ACTION_GET_APP_INFO" to RiskLevel.LOW,
-        "ACTION_FOREGROUND_APP" to RiskLevel.LOW,
         "ACTION_APP_SEARCH" to RiskLevel.LOW,
 
         "ACTION_TOAST" to RiskLevel.LOW,

@@ -34,10 +34,32 @@ class WorkflowGraph {
     }
 
     /**
-     * Fast structural validation used by HabitatJson. Runtime execution performs
-     * stricter validation with the actual NodeHandlerFactory registry.
+     * Fast structural validation using the comprehensive graph verifier.
+     * For handler registration checks, use [validateWithFactory] instead.
      */
     fun validate() {
-        GraphVerifier.verify(this).throwIfInvalid()
+        val result = com.ailun.habitat.graph.GraphVerifier(
+            expressionEngine = com.ailun.habitat.expression.ExpressionEngine(),
+            riskEngine = com.ailun.habitat.capability.RiskEngine(),
+        ).verify(this)
+        if (!result.isValid) {
+            throw IllegalArgumentException(
+                result.errors.joinToString("\n") { it.message }
+            )
+        }
+    }
+
+    /** Validate with handler registration checks against [factory]. */
+    fun validateWithFactory(factory: NodeHandlerFactory) {
+        val result = com.ailun.habitat.graph.GraphVerifier(
+            expressionEngine = com.ailun.habitat.expression.ExpressionEngine(),
+            riskEngine = com.ailun.habitat.capability.RiskEngine(),
+            factory = factory,
+        ).verify(this)
+        if (!result.isValid) {
+            throw IllegalArgumentException(
+                result.errors.joinToString("\n") { it.message }
+            )
+        }
     }
 }
