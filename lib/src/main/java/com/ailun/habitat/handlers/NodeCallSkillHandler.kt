@@ -27,7 +27,7 @@ class NodeCallSkillHandler(
         val skillId = node.params?.get("skill_id")?.toString().orEmpty()
         if (skillId.isEmpty()) {
             context.log("ACTION_CALL_SKILL: Missing skill_id parameter")
-            return node.nextResult()
+            return NodeResult.success(node.next)
         }
 
         val skill = SkillRegistry.get(skillId)
@@ -35,7 +35,7 @@ class NodeCallSkillHandler(
             context.log("ACTION_CALL_SKILL: Skill '$skillId' not found in registry")
             context.variables["skill_success"] = false
             context.variables["skill_error"] = "Skill '$skillId' not found"
-            return node.nextResult()
+            return NodeResult.success(node.next)
         }
 
         context.log("ACTION_CALL_SKILL: Executing skill '${skill.name}' ($skillId)")
@@ -46,7 +46,7 @@ class NodeCallSkillHandler(
         if (compiled == null) {
             context.variables["skill_success"] = false
             context.variables["skill_error"] = "Failed to expand skill '$skillId'"
-            return node.nextResult()
+            return NodeResult.success(node.next)
         }
 
         val skillGraph = compiled.graph
@@ -76,6 +76,6 @@ class NodeCallSkillHandler(
             context.variables["skill_graph"] = skillGraph
             context.log("  Skill '${skill.name}' expansion only (no sub-executor; execution skipped)")
         }
-        return node.nextResult()
+        return NodeResult.success(node.next)
     }
 }

@@ -2,6 +2,7 @@ package com.ailun.habitat.handlers
 
 import android.provider.Telephony
 import com.ailun.habitat.INodeHandler
+import com.ailun.habitat.NodeResult
 import com.ailun.habitat.WorkflowContext
 import com.ailun.habitat.WorkflowNode
 import com.ailun.habitat.api.IShellExecutor
@@ -38,7 +39,7 @@ class NodeReadSmsHandler(
                 val bodyIdx = cursor.getColumnIndex(Telephony.Sms.BODY)
                 if (addressIdx >= 0 && bodyIdx >= 0) {
                     if (scanCursor(cursor, addressIdx, bodyIdx, maxScan, filterBy, senderFilter, contentFilter, extractCode, context)) {
-                        return node.nextResult()
+                        return NodeResult.success(node.next)
                     }
                 }
             }
@@ -55,12 +56,12 @@ class NodeReadSmsHandler(
         if (shell != null) {
             context.log("ReadSMS: trying shell fallback...")
             val result = readSmsViaShell(shell, maxScan, filterBy, senderFilter, contentFilter, extractCode, context)
-            if (result) return node.nextResult()
+            if (result) return NodeResult.success(node.next)
         }
 
         context.variables["sms_found"] = false
         context.variables["sms_error"] = "Cannot access SMS — grant READ_SMS or enable Shizuku"
-        return node.nextResult()
+        return NodeResult.success(node.next)
     }
 
     private fun scanCursor(

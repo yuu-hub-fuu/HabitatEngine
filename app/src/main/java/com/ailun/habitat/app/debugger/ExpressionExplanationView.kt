@@ -32,9 +32,10 @@ fun ExpressionExplanationView(
                             style = MaterialTheme.typography.bodySmall,
                             modifier = Modifier.padding(vertical = 2.dp),
                         )
-                        if (result.operator != null) {
+                        val op = result.operator
+                        if (op != null) {
                             Text(
-                                "  → ${result.operator.symbol} | left=${result.leftValue}, right=${result.rightValue}",
+                                "  → ${op.symbol} | left=${result.leftValue}, right=${result.rightValue}",
                                 color = Color.Gray,
                                 style = MaterialTheme.typography.labelSmall,
                             )

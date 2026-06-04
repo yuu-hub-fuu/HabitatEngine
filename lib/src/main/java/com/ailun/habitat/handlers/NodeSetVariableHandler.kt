@@ -1,6 +1,7 @@
 package com.ailun.habitat.handlers
 
 import com.ailun.habitat.INodeHandler
+import com.ailun.habitat.NodeResult
 import com.ailun.habitat.WorkflowContext
 import com.ailun.habitat.WorkflowNode
 
@@ -26,7 +27,7 @@ class NodeSetVariableHandler : INodeHandler {
     override suspend fun handle(node: WorkflowNode, context: WorkflowContext): NodeResult {
         val key = (node.params?.get("name")?.toString()?.trim()?.takeIf { it.isNotEmpty() }
             ?: node.params?.get("key")?.toString()?.trim())
-            ?: return node.nextResult()
+            ?: return NodeResult.success(node.next)
         
         val rawValue = node.params?.get("value")
         val typeStr = node.params?.get("type")?.toString()?.trim()?.lowercase() ?: "auto"
@@ -46,7 +47,7 @@ class NodeSetVariableHandler : INodeHandler {
         
         context.putVariable(key, value)
         context.log("SetVariable $key = $value (type=$typeStr)")
-        return node.nextResult()
+        return NodeResult.success(node.next)
     }
 }
 

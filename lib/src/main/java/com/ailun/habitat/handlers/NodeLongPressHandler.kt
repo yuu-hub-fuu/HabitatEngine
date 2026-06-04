@@ -7,6 +7,7 @@ import android.graphics.Rect
 import android.util.Log
 import android.view.accessibility.AccessibilityNodeInfo
 import com.ailun.habitat.INodeHandler
+import com.ailun.habitat.NodeResult
 import com.ailun.habitat.WorkflowContext
 import com.ailun.habitat.WorkflowNode
 import com.ailun.habitat.api.IAccessibilityProvider
@@ -35,7 +36,7 @@ class NodeLongPressHandler(
         if (rawTarget.isEmpty()) {
             Log.w(TAG, "LongPress: 'target' parameter is empty")
             context.variables["long_press_success"] = false
-            return node.nextResult()
+            return NodeResult.success(node.next)
         }
 
         val target = context.interpolate(rawTarget)
@@ -44,7 +45,7 @@ class NodeLongPressHandler(
         val service = provider?.getService() ?: run {
             Log.e(TAG, "LongPress: Accessibility service not available")
             context.variables["long_press_success"] = false
-            return node.nextResult()
+            return NodeResult.success(node.next)
         }
 
         Log.d(TAG, "LongPress: target='$target', duration=${durationMs}ms")
@@ -73,7 +74,7 @@ class NodeLongPressHandler(
             context.log("LongPress: operation failed on '$target'")
         }
 
-        return node.nextResult()
+        return NodeResult.success(node.next)
     }
 
     /**

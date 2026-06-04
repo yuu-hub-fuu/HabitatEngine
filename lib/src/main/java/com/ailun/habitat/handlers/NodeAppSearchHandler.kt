@@ -4,6 +4,7 @@ import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.util.Log
 import com.ailun.habitat.INodeHandler
+import com.ailun.habitat.NodeResult
 import com.ailun.habitat.WorkflowContext
 import com.ailun.habitat.WorkflowNode
 import org.json.JSONArray
@@ -22,7 +23,7 @@ import org.json.JSONObject
 class NodeAppSearchHandler : INodeHandler {
 
     override suspend fun handle(node: WorkflowNode, context: WorkflowContext): NodeResult {
-        val params = node.params ?: return node.nextResult()
+        val params = node.params ?: return NodeResult.success(node.next)
 
         val rawQuery = params["query"]?.toString()?.trim()
         val query = rawQuery?.let { context.interpolate(it) }?.lowercase()
@@ -100,7 +101,7 @@ class NodeAppSearchHandler : INodeHandler {
             context.variables["app_search_error"] = e.message ?: "Unknown error"
         }
 
-        return node.nextResult()
+        return NodeResult.success(node.next)
     }
 
     companion object {

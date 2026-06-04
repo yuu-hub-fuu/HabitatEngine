@@ -5,6 +5,7 @@ import android.content.Context
 import android.os.Build
 import android.util.Log
 import com.ailun.habitat.INodeHandler
+import com.ailun.habitat.NodeResult
 import com.ailun.habitat.WorkflowContext
 import com.ailun.habitat.WorkflowNode
 import com.ailun.habitat.api.IAccessibilityProvider
@@ -25,7 +26,7 @@ class NodeForceStopAppHandler(
         if (packageName.isEmpty()) {
             Log.e(TAG, "Force stop failed: 'package_name' parameter is empty")
             context.variables["force_stop_success"] = false
-            return node.nextResult()
+            return NodeResult.success(node.next)
         }
 
         var success = false
@@ -83,7 +84,7 @@ class NodeForceStopAppHandler(
             Log.e(TAG, "Failed to force-stop app: $packageName")
         }
 
-        return node.nextResult()
+        return NodeResult.success(node.next)
     }
 
     companion object {

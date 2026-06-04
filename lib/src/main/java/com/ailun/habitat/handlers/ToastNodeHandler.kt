@@ -2,6 +2,7 @@ package com.ailun.habitat.handlers
 
 import android.widget.Toast
 import com.ailun.habitat.INodeHandler
+import com.ailun.habitat.NodeResult
 import com.ailun.habitat.WorkflowContext
 import com.ailun.habitat.WorkflowNode
 import kotlinx.coroutines.Dispatchers
@@ -19,6 +20,6 @@ class ToastNodeHandler : INodeHandler {
         } catch (_: Exception) {
             context.log("Toast FAILED (no UI context): $message")
         }
-        return node.nextResult()
+        return NodeResult.success(node.next)
     }
 }

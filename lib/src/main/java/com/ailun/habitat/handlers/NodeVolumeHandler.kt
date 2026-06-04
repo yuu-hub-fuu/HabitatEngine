@@ -4,6 +4,7 @@ import android.content.Context
 import android.media.AudioManager
 import android.util.Log
 import com.ailun.habitat.INodeHandler
+import com.ailun.habitat.NodeResult
 import com.ailun.habitat.WorkflowContext
 import com.ailun.habitat.WorkflowNode
 import com.ailun.habitat.api.IAccessibilityProvider
@@ -26,7 +27,7 @@ class NodeVolumeHandler(
         val action = node.params?.get("action")?.toString()?.trim()?.lowercase().orEmpty()
         if (action.isEmpty()) {
             Log.e(TAG, "Volume failed: 'action' parameter is empty")
-            return node.nextResult()
+            return NodeResult.success(node.next)
         }
 
         val streamType = streamTypeFromParam(
@@ -36,7 +37,7 @@ class NodeVolumeHandler(
         val audioManager = context.appContext.getSystemService(Context.AUDIO_SERVICE) as? AudioManager
         if (audioManager == null) {
             Log.e(TAG, "Volume failed: unable to get AudioManager service")
-            return node.nextResult()
+            return NodeResult.success(node.next)
         }
 
         try {
@@ -55,7 +56,7 @@ class NodeVolumeHandler(
             Log.e(TAG, "Volume error for action '$action': ${e.message}", e)
         }
 
-        return node.nextResult()
+        return NodeResult.success(node.next)
     }
 
     private fun handleSet(

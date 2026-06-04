@@ -3,6 +3,7 @@ package com.ailun.habitat.handlers
 import android.util.Base64
 import android.util.Log
 import com.ailun.habitat.INodeHandler
+import com.ailun.habitat.NodeResult
 import com.ailun.habitat.WorkflowContext
 import com.ailun.habitat.WorkflowNode
 
@@ -17,18 +18,18 @@ import com.ailun.habitat.WorkflowNode
 class NodeBase64Handler : INodeHandler {
 
     override suspend fun handle(node: WorkflowNode, context: WorkflowContext): NodeResult {
-        val params = node.params ?: return node.nextResult()
+        val params = node.params ?: return NodeResult.success(node.next)
 
         val action = params["action"]?.toString()?.trim()?.lowercase() ?: run {
             Log.w(TAG, "No action specified")
             context.variables["base64_success"] = false
-            return node.nextResult()
+            return NodeResult.success(node.next)
         }
 
         val rawData = params["data"]?.toString()?.trim() ?: run {
             Log.w(TAG, "No data provided")
             context.variables["base64_success"] = false
-            return node.nextResult()
+            return NodeResult.success(node.next)
         }
 
         val data = context.interpolate(rawData)
@@ -45,7 +46,7 @@ class NodeBase64Handler : INodeHandler {
                 else -> {
                     Log.w(TAG, "Unknown action: $action, expected 'encode' or 'decode'")
                     context.variables["base64_success"] = false
-                    return node.nextResult()
+                    return NodeResult.success(node.next)
                 }
             }
 
@@ -61,7 +62,7 @@ class NodeBase64Handler : INodeHandler {
             context.variables["base64_error"] = e.message ?: "Unknown error"
         }
 
-        return node.nextResult()
+        return NodeResult.success(node.next)
     }
 
     companion object {

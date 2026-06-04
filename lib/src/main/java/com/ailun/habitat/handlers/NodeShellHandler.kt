@@ -1,6 +1,7 @@
 package com.ailun.habitat.handlers
 
 import com.ailun.habitat.INodeHandler
+import com.ailun.habitat.NodeResult
 import com.ailun.habitat.WorkflowContext
 import com.ailun.habitat.WorkflowNode
 import com.ailun.habitat.api.IShellExecutor
@@ -23,7 +24,7 @@ class NodeShellHandler(
 
     override suspend fun handle(node: WorkflowNode, context: WorkflowContext): NodeResult {
         val rawCommand = node.params?.get("command")?.toString()?.trim().orEmpty()
-        if (rawCommand.isEmpty()) return node.nextResult()
+        if (rawCommand.isEmpty()) return NodeResult.success(node.next)
 
         val command = context.interpolate(rawCommand)
         val modeStr = node.params?.get("mode")?.toString()?.trim()?.lowercase() ?: MODE_AUTO
@@ -50,7 +51,7 @@ class NodeShellHandler(
             context.log("Shell [$modeStr]: $msg")
         }
 
-        return node.nextResult()
+        return NodeResult.success(node.next)
     }
 
     companion object {

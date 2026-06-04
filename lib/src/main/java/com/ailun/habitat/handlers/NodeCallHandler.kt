@@ -4,6 +4,7 @@ import android.content.Intent
 import android.net.Uri
 import android.util.Log
 import com.ailun.habitat.INodeHandler
+import com.ailun.habitat.NodeResult
 import com.ailun.habitat.WorkflowContext
 import com.ailun.habitat.WorkflowNode
 import com.ailun.habitat.api.IAccessibilityProvider
@@ -24,7 +25,7 @@ class NodeCallHandler(
         if (rawNumber.isEmpty()) {
             Log.e(TAG, "Call failed: 'phone_number' parameter is empty")
             context.variables["call_success"] = false
-            return node.nextResult()
+            return NodeResult.success(node.next)
         }
 
         val phoneNumber = context.interpolate(rawNumber)
@@ -43,7 +44,7 @@ class NodeCallHandler(
             context.variables["call_success"] = false
         }
 
-        return node.nextResult()
+        return NodeResult.success(node.next)
     }
 
     companion object {

@@ -15,6 +15,7 @@ import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
 import com.ailun.habitat.HabitatExecutionService
 import com.ailun.habitat.HabitatWorkflow
+import com.ailun.habitat.isStarted
 import com.ailun.habitat.NodeHandlerFactory
 import com.ailun.habitat.R
 import com.ailun.habitat.app.bridge.AppAccessibilityProvider

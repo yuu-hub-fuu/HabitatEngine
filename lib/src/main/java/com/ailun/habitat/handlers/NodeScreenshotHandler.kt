@@ -6,6 +6,7 @@ import android.os.Environment
 import android.util.Base64
 import android.util.Log
 import com.ailun.habitat.INodeHandler
+import com.ailun.habitat.NodeResult
 import com.ailun.habitat.WorkflowContext
 import com.ailun.habitat.WorkflowNode
 import com.ailun.habitat.api.IShellExecutor
@@ -17,7 +18,7 @@ class NodeScreenshotHandler(
 ) : INodeHandler {
 
     override suspend fun handle(node: WorkflowNode, context: WorkflowContext): NodeResult {
-        val params = node.params ?: return node.nextResult()
+        val params = node.params ?: return NodeResult.success(node.next)
 
         val outputVar = params["output_var"]?.toString()?.trim()?.ifEmpty { null }
         val format = params["format"]?.toString()?.trim()?.lowercase() ?: "base64"
@@ -45,7 +46,7 @@ class NodeScreenshotHandler(
                     Log.e(TAG, "Screenshot shell error: $result")
                     context.variables["screenshot_success"] = false
                     context.variables["screenshot_error"] = "Shell: $result"
-                    return node.nextResult()
+                    return NodeResult.success(node.next)
                 }
             } else {
                 context.log("Screenshot: no shell executor, trying Runtime.exec")
@@ -60,7 +61,7 @@ class NodeScreenshotHandler(
                     context.log("Screenshot: Runtime.exec failed: ${e.message}")
                     context.variables["screenshot_success"] = false
                     context.variables["screenshot_error"] = "exec: ${e.message}"
-                    return node.nextResult()
+                    return NodeResult.success(node.next)
                 }
             }
 
@@ -75,7 +76,7 @@ class NodeScreenshotHandler(
                 Log.e(TAG, "Screenshot: no output file at $outFile")
                 context.variables["screenshot_success"] = false
                 context.variables["screenshot_error"] = "文件未生成 ($outFile)"
-                return node.nextResult()
+                return NodeResult.success(node.next)
             }
 
             val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
@@ -116,7 +117,7 @@ class NodeScreenshotHandler(
             context.log("Screenshot: exception ${e.message}")
         }
 
-        return node.nextResult()
+        return NodeResult.success(node.next)
     }
 
     companion object {

@@ -1,6 +1,7 @@
 package com.ailun.habitat.handlers
 
 import com.ailun.habitat.INodeHandler
+import com.ailun.habitat.NodeResult
 import com.ailun.habitat.WorkflowContext
 import com.ailun.habitat.WorkflowNode
 import com.ailun.habitat.api.IAccessibilityProvider
@@ -30,7 +31,7 @@ class NodeWaitForHandler(
         val params = node.params ?: emptyMap()
         val condition = params["condition"]?.toString()?.trim()?.lowercase() ?: run {
             fail(context, "Missing 'condition' parameter")
-            return node.nextResult()
+            return NodeResult.success(node.next)
         }
         val target = params["target"]?.toString()?.trim()?.takeIf { it.isNotEmpty() }
         val varName = params["variable"]?.toString()?.trim()?.takeIf { it.isNotEmpty() }
@@ -70,12 +71,12 @@ class NodeWaitForHandler(
 
         if (met) {
             context.log("WAIT_FOR: condition '$condition' met after ${timeoutMs - elapsed}ms")
-            return node.nextResult()
+            return NodeResult.success(node.next)
         } else {
             context.log("WAIT_FOR: timed out after ${timeoutMs}ms waiting for '$condition'")
             context.variables["_last_error"] = true
             context.variables["_last_error_msg"] = "WaitFor timed out: $condition"
-            return node.nextResult()
+            return NodeResult.success(node.next)
         }
     }
 

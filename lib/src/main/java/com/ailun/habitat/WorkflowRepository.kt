@@ -110,7 +110,7 @@ object WorkflowRepository {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         synchronized(lock) {
             // Remove keys for deleted workflows
-            val existingIds = prefs.all.keys.filter { it.startsWith(KEY_WORKFLOW_PREFIX) }
+            val existingIds = prefs.all.keys.filter { it.startsWith(KEY_WORKFLOW_PREFIX) }.toSet()
             val newIds = workflows.map { KEY_WORKFLOW_PREFIX + it.id }.toSet()
             val toRemove = existingIds - newIds
             saveAllInternalUnsafe(prefs, workflows, keysToRemove = toRemove)

@@ -4,6 +4,7 @@ import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import android.util.Log
 import com.ailun.habitat.INodeHandler
+import com.ailun.habitat.NodeResult
 import com.ailun.habitat.WorkflowContext
 import com.ailun.habitat.WorkflowNode
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -23,19 +24,19 @@ import kotlin.coroutines.resume
 class NodeTtsHandler : INodeHandler {
 
     override suspend fun handle(node: WorkflowNode, context: WorkflowContext): NodeResult {
-        val params = node.params ?: return node.nextResult()
+        val params = node.params ?: return NodeResult.success(node.next)
 
         val rawText = params["text"]?.toString()?.trim() ?: run {
             Log.w(TAG, "No text specified")
             context.variables["tts_success"] = false
-            return node.nextResult()
+            return NodeResult.success(node.next)
         }
 
         val text = context.interpolate(rawText)
         if (text.isEmpty()) {
             Log.w(TAG, "Text is empty after interpolation")
             context.variables["tts_success"] = false
-            return node.nextResult()
+            return NodeResult.success(node.next)
         }
 
         val languageCode = params["language"]?.toString()?.trim()?.lowercase()
@@ -166,7 +167,7 @@ class NodeTtsHandler : INodeHandler {
             }
         }
 
-        return node.nextResult()
+        return NodeResult.success(node.next)
     }
 
     companion object {

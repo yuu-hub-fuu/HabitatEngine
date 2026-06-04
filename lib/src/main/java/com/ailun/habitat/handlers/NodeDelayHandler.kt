@@ -1,6 +1,7 @@
 package com.ailun.habitat.handlers
 
 import com.ailun.habitat.INodeHandler
+import com.ailun.habitat.NodeResult
 import com.ailun.habitat.WorkflowContext
 import com.ailun.habitat.WorkflowNode
 import kotlinx.coroutines.delay
@@ -29,14 +30,14 @@ class NodeDelayHandler : INodeHandler {
                     context.log("ACTION_DELAY: invalid millis value '$raw'; failing")
                     context.variables["_last_error"] = true
                     context.variables["_last_error_msg"] = "Invalid delay value: $raw"
-                    return node.nextResult()
+                    return NodeResult.success(node.next)
                 }
             }
             else -> {
                 context.log("ACTION_DELAY: missing or invalid millis/ms param; failing")
                 context.variables["_last_error"] = true
                 context.variables["_last_error_msg"] = "Missing delay parameter"
-                return node.nextResult()
+                return NodeResult.success(node.next)
             }
         }
 
@@ -44,7 +45,7 @@ class NodeDelayHandler : INodeHandler {
             context.log("ACTION_DELAY: negative delay ($ms ms); failing")
             context.variables["_last_error"] = true
             context.variables["_last_error_msg"] = "Negative delay: $ms"
-            return node.nextResult()
+            return NodeResult.success(node.next)
         }
 
         val effective = if (ms > MAX_DELAY_MS) {
@@ -58,6 +59,6 @@ class NodeDelayHandler : INodeHandler {
         }
 
         if (effective > 0) delay(effective)
-        return node.nextResult()
+        return NodeResult.success(node.next)
     }
 }

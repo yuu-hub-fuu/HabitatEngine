@@ -1,6 +1,7 @@
 package com.ailun.habitat.handlers
 
 import com.ailun.habitat.INodeHandler
+import com.ailun.habitat.NodeResult
 import com.ailun.habitat.WorkflowContext
 import com.ailun.habitat.WorkflowNode
 import kotlin.random.Random
@@ -28,6 +29,6 @@ class NodeRandomHandler : INodeHandler {
         }
         context.variables["random_success"] = true
         context.log("Random type=$type min=$min max=$max → ${context.variables[outputVar]}")
-        return node.nextResult()
+        return NodeResult.success(node.next)
     }
 }

@@ -2,7 +2,27 @@
   "permissions": {
     "allow": [
       "Bash(git init *)",
-      "Bash(git add *)"
+      "Bash(git add *)",
+      "Bash(git commit -m 'Initial commit: HabitatEngine Android workflow engine *)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\gjy10\\\\Desktop\\\\顾秋雨\\\\好玩项目\\\\HabitatEngine-main\" -Depth 1)",
+      "Bash(Select-Object Name, Attributes)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\gjy10\\\\Desktop\\\\顾秋雨\\\\好玩项目\\\\HabitatEngine-main\" -Directory)",
+      "Bash(Select-Object -First 30 Name)",
+      "PowerShell(Get-ChildItem *)",
+      "Bash(git fetch *)",
+      "Bash(git merge *)",
+      "Bash(./gradlew :lib:compileDebugKotlin --no-daemon)",
+      "PowerShell(Get-ChildItem \"C:\\\\Program Files\\\\Android\\\\Android Studio\\\\jbr\" -ErrorAction SilentlyContinue | Select-Object -First 1 | % Name; Get-ChildItem \"C:\\\\Program Files\\\\Java\" -ErrorAction SilentlyContinue -Directory | % FullName; $env:JAVA_HOME)",
+      "Bash(New-Item *)",
+      "Bash(java -version)",
+      "Bash(git commit *)",
+      "Bash(git push *)",
+      "Bash(Get-ChildItem -Recurse -Directory -Depth 3)",
+      "Bash(Select-Object -First 80 FullName)",
+      "Bash(rg *)",
+      "Bash(./gradlew :lib:testDebugUnitTest *)",
+      "Bash(./gradlew :lib:compileDebugKotlin *)",
+      "Bash(./gradlew :lib:compileDebugUnitTestKotlin *)"
     ]
   }
 }

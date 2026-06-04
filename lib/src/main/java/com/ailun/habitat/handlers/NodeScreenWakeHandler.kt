@@ -4,6 +4,7 @@ import android.content.Context
 import android.os.PowerManager
 import android.util.Log
 import com.ailun.habitat.INodeHandler
+import com.ailun.habitat.NodeResult
 import com.ailun.habitat.WorkflowContext
 import com.ailun.habitat.WorkflowNode
 import com.ailun.habitat.api.IAccessibilityProvider
@@ -24,7 +25,7 @@ class NodeScreenWakeHandler(
         if (action.isEmpty()) {
             Log.e(TAG, "Screen wake failed: 'action' parameter is empty")
             context.variables["screen_wake_success"] = false
-            return node.nextResult()
+            return NodeResult.success(node.next)
         }
 
         val password = node.params?.get("password")?.toString()?.trim()
@@ -45,7 +46,7 @@ class NodeScreenWakeHandler(
             else -> {
                 Log.e(TAG, "Screen wake failed: unknown action '$action'")
                 context.variables["screen_wake_success"] = false
-                return node.nextResult()
+                return NodeResult.success(node.next)
             }
         }
 
@@ -56,7 +57,7 @@ class NodeScreenWakeHandler(
             Log.e(TAG, "Screen action '$action' failed")
         }
 
-        return node.nextResult()
+        return NodeResult.success(node.next)
     }
 
     private suspend fun wakeScreen(context: WorkflowContext): Boolean {

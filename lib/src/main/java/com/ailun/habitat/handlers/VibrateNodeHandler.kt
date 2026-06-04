@@ -2,6 +2,7 @@ package com.ailun.habitat.handlers
 
 import android.content.Context
 import com.ailun.habitat.INodeHandler
+import com.ailun.habitat.NodeResult
 import com.ailun.habitat.WorkflowContext
 import com.ailun.habitat.WorkflowNode
 import android.os.Build
@@ -41,7 +42,7 @@ class VibrateNodeHandler : INodeHandler {
         } catch (_: Exception) {
             context.log("Vibrate FAILED")
         }
-        return node.nextResult()
+        return NodeResult.success(node.next)
     }
 
     private fun parseLong(value: Any?): Long? = when (value) {

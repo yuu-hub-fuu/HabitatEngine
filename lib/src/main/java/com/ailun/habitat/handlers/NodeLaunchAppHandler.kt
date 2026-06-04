@@ -4,6 +4,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.util.Log
 import com.ailun.habitat.INodeHandler
+import com.ailun.habitat.NodeResult
 import com.ailun.habitat.WorkflowContext
 import com.ailun.habitat.WorkflowNode
 import com.ailun.habitat.api.IAccessibilityProvider
@@ -24,7 +25,7 @@ class NodeLaunchAppHandler(
         if (packageName.isEmpty()) {
             Log.e(TAG, "Launch app failed: 'package_name' parameter is empty")
             context.variables["launch_success"] = false
-            return node.nextResult()
+            return NodeResult.success(node.next)
         }
 
         val activityName = node.params?.get("activity")?.toString()?.trim()
@@ -45,7 +46,7 @@ class NodeLaunchAppHandler(
             if (intent == null) {
                 Log.e(TAG, "Launch app failed: unable to resolve intent for package '$packageName'")
                 context.variables["launch_success"] = false
-                return node.nextResult()
+                return NodeResult.success(node.next)
             }
 
             context.appContext.startActivity(intent)
@@ -56,7 +57,7 @@ class NodeLaunchAppHandler(
             context.variables["launch_success"] = false
         }
 
-        return node.nextResult()
+        return NodeResult.success(node.next)
     }
 
     companion object {

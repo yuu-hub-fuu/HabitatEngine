@@ -2,8 +2,10 @@ package com.ailun.habitat.app.handlers
 
 import android.app.NotificationChannel
 import com.ailun.habitat.INodeHandler
+import com.ailun.habitat.NodeResult
 import com.ailun.habitat.WorkflowContext
 import com.ailun.habitat.WorkflowNode
+import com.ailun.habitat.nextResult
 import android.app.NotificationManager
 import android.content.Context
 import android.os.Build
@@ -15,7 +17,7 @@ import com.ailun.habitat.R
  */
 class NodeNotificationHandler : INodeHandler {
 
-    override suspend fun handle(node: WorkflowNode, context: WorkflowContext): String? {
+    override suspend fun handle(node: WorkflowNode, context: WorkflowContext): NodeResult {
         val app = context.appContext
         val title = node.params?.get("title")?.toString()
             ?: app.getString(R.string.habitat_notification_title_default)
@@ -39,7 +41,7 @@ class NodeNotificationHandler : INodeHandler {
             .build()
 
         nm.notify(System.currentTimeMillis().toInt(), notification)
-        return node.next
+        return node.nextResult()
     }
 
     companion object {

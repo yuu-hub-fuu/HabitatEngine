@@ -93,7 +93,7 @@ class GraphVerifier(
                     val hasBreak = cycleNodes.any { nodeId ->
                         val n = nodes[nodeId]
                         n?.type in listOf("CONDITION_SWITCH", "CONDITION_ADVANCED_SWITCH") &&
-                        n.branches?.size == 2
+                        n?.branches?.size == 2
                     }
                     deadLoops.add(DeadLoop(currentId, cycleNodes, hasBreak))
                     if (!hasBreak) {

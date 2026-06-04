@@ -5,6 +5,7 @@ import android.net.wifi.WifiManager
 import android.os.Build
 import android.util.Log
 import com.ailun.habitat.INodeHandler
+import com.ailun.habitat.NodeResult
 import com.ailun.habitat.WorkflowContext
 import com.ailun.habitat.WorkflowNode
 import com.ailun.habitat.api.IAccessibilityProvider
@@ -20,7 +21,7 @@ class NodeWifiHandler(
         if (action.isEmpty()) {
             Log.e(TAG, "WiFi failed: 'action' parameter is empty")
             context.variables["wifi_success"] = false
-            return node.nextResult()
+            return NodeResult.success(node.next)
         }
 
         @Suppress("DEPRECATION")
@@ -28,7 +29,7 @@ class NodeWifiHandler(
         if (wifiManager == null) {
             Log.e(TAG, "WiFi failed: unable to get WifiManager service")
             context.variables["wifi_success"] = false
-            return node.nextResult()
+            return NodeResult.success(node.next)
         }
 
         var success = false
@@ -64,7 +65,7 @@ class NodeWifiHandler(
                 else -> {
                     Log.e(TAG, "WiFi failed: unknown action '$action'")
                     context.variables["wifi_success"] = false
-                    return node.nextResult()
+                    return NodeResult.success(node.next)
                 }
             }
         } catch (e: Exception) {
@@ -73,7 +74,7 @@ class NodeWifiHandler(
         }
 
         context.variables["wifi_success"] = success
-        return node.nextResult()
+        return NodeResult.success(node.next)
     }
 
     private suspend fun setWifiEnabled(context: WorkflowContext, wifiManager: WifiManager, enable: Boolean): Boolean {

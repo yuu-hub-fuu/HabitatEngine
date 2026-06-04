@@ -1,6 +1,7 @@
 package com.ailun.habitat.handlers
 
 import com.ailun.habitat.INodeHandler
+import com.ailun.habitat.NodeResult
 import com.ailun.habitat.WorkflowContext
 import com.ailun.habitat.WorkflowNode
 import com.ailun.habitat.ai.ILLMService
@@ -36,6 +37,6 @@ class NodeLLMHandler(private val llmService: ILLMService? = null) : INodeHandler
         context.putVariable(outputVar, result)
         context.putVariable("llm_success", true)
         context.log("NodeLLMHandler: inference completed, result saved to $outputVar")
-        return node.nextResult()
+        return NodeResult.success(node.next)
     }
 }

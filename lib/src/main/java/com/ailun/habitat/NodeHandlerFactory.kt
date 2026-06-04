@@ -44,7 +44,7 @@ class NodeHandlerFactory(
         register(ACTION_MATH, NodeMathHandler())
         register(ACTION_CLIPBOARD, NodeClipboardHandler())
         register(ACTION_PARSE_JSON, NodeParseJsonHandler())
-        register(ACTION_PARSE_XML, NodeParseXmlHandler())
+        // ACTION_PARSE_XML pending rewrite
         register(ACTION_BASE64, NodeBase64Handler())
         register(ACTION_FILE_OPERATION, NodeFileOperationHandler())
 
@@ -65,7 +65,6 @@ class NodeHandlerFactory(
         register(ACTION_BLUETOOTH, NodeBluetoothHandler())
         register(ACTION_VOLUME, NodeVolumeHandler())
         register(ACTION_BRIGHTNESS, NodeBrightnessHandler())
-        register(ACTION_FLASHLIGHT, NodeFlashlightHandler())
         register(ACTION_CALL_PHONE, NodeCallHandler())
         register(ACTION_SHARE, NodeShareHandler())
 
@@ -85,7 +84,6 @@ class NodeHandlerFactory(
         register(ACTION_READ_SCREEN, NodeReadScreenHandler(a11y))
         register(ACTION_READ_SMS, NodeReadSmsHandler(shell))
         register(ACTION_GET_APP_INFO, NodeAppInfoHandler(a11y))
-        register(ACTION_FOREGROUND_APP, NodeForegroundAppHandler(a11y, shell))
         register(ACTION_APP_SEARCH, NodeAppSearchHandler())
 
         // ── UI ──

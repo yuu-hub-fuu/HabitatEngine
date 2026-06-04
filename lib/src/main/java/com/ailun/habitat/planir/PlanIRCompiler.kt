@@ -4,6 +4,7 @@ import com.ailun.habitat.WorkflowGraph
 import com.ailun.habitat.WorkflowNode
 import com.ailun.habitat.capability.CapabilityMapping
 import com.ailun.habitat.capability.RiskEngine
+import com.ailun.habitat.expression.ExpressionEngine
 import com.ailun.habitat.capability.RiskLevel
 
 /**

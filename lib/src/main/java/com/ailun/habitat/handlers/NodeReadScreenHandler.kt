@@ -2,6 +2,7 @@ package com.ailun.habitat.handlers
 
 import android.util.Log
 import com.ailun.habitat.INodeHandler
+import com.ailun.habitat.NodeResult
 import com.ailun.habitat.WorkflowContext
 import com.ailun.habitat.WorkflowNode
 import android.view.accessibility.AccessibilityNodeInfo
@@ -24,7 +25,7 @@ class NodeReadScreenHandler(
             ?: run {
                 context.log("ReadScreen Error: Accessibility not running")
                 context.variables["screen_data"] = false
-                return node.nextResult()
+                return NodeResult.success(node.next)
             }
 
         val roots = mutableListOf<AccessibilityNodeInfo>()
@@ -55,7 +56,7 @@ class NodeReadScreenHandler(
         if (roots.isEmpty()) {
             context.variables["screen_data"] = false
             if (outputVar.isNotEmpty()) context.putVariable(outputVar, "")
-            return node.nextResult()
+            return NodeResult.success(node.next)
         }
 
         var found = false
@@ -77,7 +78,7 @@ class NodeReadScreenHandler(
         } finally {
             roots.forEach { it.recycle() }
         }
-        return node.nextResult()
+        return NodeResult.success(node.next)
     }
 
     private fun containsKeywordRecursive(node: AccessibilityNodeInfo, keyword: String): Boolean {

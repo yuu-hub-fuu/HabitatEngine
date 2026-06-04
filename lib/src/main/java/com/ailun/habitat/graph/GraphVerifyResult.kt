@@ -68,7 +68,7 @@ sealed class VerifyError(val message: String) {
     data class MissingStartNode(val startNodeId: String) :
         VerifyError("Start node '$startNodeId' not found in nodes map")
 
-    data class EmptyNodes :
+    object EmptyNodes :
         VerifyError("Graph has no nodes")
 }
 
@@ -87,7 +87,7 @@ sealed class VerifyWarning(val message: String) {
     data class CircularRisk(val nodes: List<String>) :
         VerifyWarning("Cycle detected through nodes ${nodes.take(3).joinToString(" → ")}; has a break condition but may still loop indefinitely")
 
-    data class MissingSuccessCriteria :
+    object MissingSuccessCriteria :
         VerifyWarning("Workflow has no success criteria defined")
 
     data class UncoveredBranch(val nodeId: String, val branchName: String) :

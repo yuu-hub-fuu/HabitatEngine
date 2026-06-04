@@ -2,6 +2,7 @@ package com.ailun.habitat.handlers
 
 import android.util.Log
 import com.ailun.habitat.INodeHandler
+import com.ailun.habitat.NodeResult
 import com.ailun.habitat.WorkflowContext
 import com.ailun.habitat.WorkflowNode
 import com.ailun.habitat.api.IAccessibilityProvider
@@ -33,20 +34,20 @@ class NodeGlobalKeyHandler(
         if (key.isEmpty()) {
             Log.w(TAG, "GlobalKey: 'key' parameter is empty")
             context.variables["key_success"] = false
-            return node.nextResult()
+            return NodeResult.success(node.next)
         }
 
         val keyCode = KEY_MAP[key]
         if (keyCode == null) {
             Log.w(TAG, "GlobalKey: unknown key '$key', valid keys: ${KEY_MAP.keys}")
             context.variables["key_success"] = false
-            return node.nextResult()
+            return NodeResult.success(node.next)
         }
 
         val executor = shellExecutor ?: run {
             Log.e(TAG, "GlobalKey: IShellExecutor not available")
             context.variables["key_success"] = false
-            return node.nextResult()
+            return NodeResult.success(node.next)
         }
 
         Log.d(TAG, "GlobalKey: sending keyevent $keyCode for key '$key'")
@@ -67,7 +68,7 @@ class NodeGlobalKeyHandler(
             context.log("GlobalKey: key '$key' (code=$keyCode) execution failed")
         }
 
-        return node.nextResult()
+        return NodeResult.success(node.next)
     }
 
     companion object {

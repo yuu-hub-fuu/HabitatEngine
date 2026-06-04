@@ -2,6 +2,7 @@ package com.ailun.habitat.handlers
 
 import com.ailun.habitat.HabitatAccessibility
 import com.ailun.habitat.INodeHandler
+import com.ailun.habitat.NodeResult
 import com.ailun.habitat.WorkflowContext
 import com.ailun.habitat.WorkflowNode
 import com.ailun.habitat.api.IAccessibilityProvider
@@ -15,17 +16,17 @@ class NodeSwipeHandler(
 ) : INodeHandler {
 
     override suspend fun handle(node: WorkflowNode, context: WorkflowContext): NodeResult {
-        val service = a11yProvider?.getService() ?: return node.nextResult()
-        val p = node.params ?: return node.nextResult()
-        val x1 = (p["x1"] as? Number)?.toInt() ?: return node.nextResult()
-        val y1 = (p["y1"] as? Number)?.toInt() ?: return node.nextResult()
-        val x2 = (p["x2"] as? Number)?.toInt() ?: return node.nextResult()
-        val y2 = (p["y2"] as? Number)?.toInt() ?: return node.nextResult()
+        val service = a11yProvider?.getService() ?: return NodeResult.success(node.next)
+        val p = node.params ?: return NodeResult.success(node.next)
+        val x1 = (p["x1"] as? Number)?.toInt() ?: return NodeResult.success(node.next)
+        val y1 = (p["y1"] as? Number)?.toInt() ?: return NodeResult.success(node.next)
+        val x2 = (p["x2"] as? Number)?.toInt() ?: return NodeResult.success(node.next)
+        val y2 = (p["y2"] as? Number)?.toInt() ?: return NodeResult.success(node.next)
         val duration = (p["duration"] as? Number)?.toLong() ?: 400L
 
         val ok = HabitatAccessibility.dispatchSwipe(service, x1, y1, x2, y2, duration)
         context.variables["swipe_success"] = ok
         context.log("Swipe ($x1,$y1)→($x2,$y2) dur=${duration}ms ok=$ok")
-        return node.nextResult()
+        return NodeResult.success(node.next)
     }
 }

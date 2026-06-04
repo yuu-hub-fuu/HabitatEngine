@@ -5,6 +5,7 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.util.Log
 import com.ailun.habitat.INodeHandler
+import com.ailun.habitat.NodeResult
 import com.ailun.habitat.WorkflowContext
 import com.ailun.habitat.WorkflowNode
 
@@ -19,19 +20,19 @@ import com.ailun.habitat.WorkflowNode
 class NodeClipboardHandler : INodeHandler {
 
     override suspend fun handle(node: WorkflowNode, context: WorkflowContext): NodeResult {
-        val params = node.params ?: return node.nextResult()
+        val params = node.params ?: return NodeResult.success(node.next)
 
         val action = params["action"]?.toString()?.trim()?.lowercase() ?: run {
             Log.w(TAG, "No action specified")
             context.variables["clipboard_success"] = false
-            return node.nextResult()
+            return NodeResult.success(node.next)
         }
 
         val clipboardManager = context.appContext.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
         if (clipboardManager == null) {
             Log.e(TAG, "ClipboardManager not available")
             context.variables["clipboard_success"] = false
-            return node.nextResult()
+            return NodeResult.success(node.next)
         }
 
         try {
@@ -77,7 +78,7 @@ class NodeClipboardHandler : INodeHandler {
             context.variables["clipboard_error"] = e.message ?: "Unknown error"
         }
 
-        return node.nextResult()
+        return NodeResult.success(node.next)
     }
 
     companion object {

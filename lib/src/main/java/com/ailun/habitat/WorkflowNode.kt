@@ -28,10 +28,6 @@ class WorkflowNode {
 
     // ── v2 fields (all nullable for backward compat) ──
 
-    /** Per-node success condition. Evaluated by SuccessEvaluator after execution. */
-    @SerializedName("post_condition")
-    var postCondition: Map<String, Any>? = null
-
     /** Guard conditions that must be satisfied before this node executes. */
     var guards: List<Map<String, Any>>? = null
 

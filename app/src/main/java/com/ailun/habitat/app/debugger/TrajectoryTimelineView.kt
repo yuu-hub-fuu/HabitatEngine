@@ -14,11 +14,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import com.ailun.habitat.trajectory.RunSummary
 
 @Composable
 fun TrajectoryTimelineView(
-    runs: List<RunSummary>,
+    runIds: List<String>,
     selectedRunId: String?,
     onRunSelected: (String) -> Unit,
 ) {
@@ -29,32 +28,22 @@ fun TrajectoryTimelineView(
             .padding(8.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        runs.forEach { run ->
-            val isSelected = run.runId == selectedRunId
-            val dotColor = when {
-                run.success -> Color(0xFF4CAF50)
-                run.errorCount > 0 -> Color(0xFFE53935)
-                else -> Color.Gray
-            }
+        runIds.forEach { rid ->
+            val isSelected = rid == selectedRunId
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.clickable { onRunSelected(run.runId) },
+                modifier = Modifier.clickable { onRunSelected(rid) },
             ) {
                 Box(
                     modifier = Modifier
                         .size(16.dp)
                         .clip(CircleShape)
-                        .background(dotColor)
+                        .background(if (isSelected) Color(0xFF4CAF50) else Color.Gray)
                 )
                 Text(
-                    run.taskDescription?.take(15) ?: run.runId.take(8),
+                    rid.take(12),
                     style = MaterialTheme.typography.labelSmall,
                     color = if (isSelected) Color.White else Color.Gray,
-                )
-                Text(
-                    "${run.stepCount} steps",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = Color.Gray,
                 )
             }
         }

@@ -11,7 +11,8 @@ object PlanCompiler {
             step.id to WorkflowNode().apply {
                 id = step.id
                 type = step.actionType
-                params = step.params
+                @Suppress("UNCHECKED_CAST")
+                params = step.params as? Map<String, Any>
                 next = step.onSuccess
                 branches = buildMap {
                     step.onFailure?.let { put("error", it) }

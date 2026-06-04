@@ -5,6 +5,7 @@ import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.net.wifi.WifiManager
 import com.ailun.habitat.INodeHandler
+import com.ailun.habitat.NodeResult
 import com.ailun.habitat.WorkflowContext
 import com.ailun.habitat.WorkflowNode
 import java.net.Inet4Address
@@ -50,7 +51,7 @@ class NodeNetworkStatusHandler : INodeHandler {
             context.variables["network_success"] = false
         }
         context.log("NetworkStatus connected=${context.variables["network_connected"]} type=${context.variables["network_type"]}")
-        return node.nextResult()
+        return NodeResult.success(node.next)
     }
 
     private fun getWifiIp(context: WorkflowContext): String {

@@ -2,6 +2,8 @@ package com.ailun.habitat.app.handlers
 
 import android.graphics.Color
 import com.ailun.habitat.INodeHandler
+import com.ailun.habitat.NodeResult
+import com.ailun.habitat.nextResult
 import com.ailun.habitat.app.ServiceLifecycleOwner
 import com.ailun.habitat.WorkflowContext
 import com.ailun.habitat.WorkflowNode
@@ -38,9 +40,9 @@ import kotlinx.coroutines.withContext
  */
 class DynamicIslandNodeHandler : INodeHandler {
 
-    override suspend fun handle(node: WorkflowNode, context: WorkflowContext): String? {
+    override suspend fun handle(node: WorkflowNode, context: WorkflowContext): NodeResult {
         val message = node.params?.get("message")?.toString()?.trim()
-            ?: return node.next
+            ?: return node.nextResult()
 
         val interpolatedMessage = context.interpolate(message)
         val durationMs = (node.params?.get("duration_ms") as? Number)?.toLong() ?: 3000L
@@ -49,7 +51,7 @@ class DynamicIslandNodeHandler : INodeHandler {
             showDynamicIsland(context.appContext, interpolatedMessage, durationMs)
         }
 
-        return node.next
+        return node.nextResult()
     }
 
     private fun showDynamicIsland(

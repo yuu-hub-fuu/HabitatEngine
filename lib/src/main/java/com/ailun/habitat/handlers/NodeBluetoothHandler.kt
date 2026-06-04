@@ -3,6 +3,7 @@ package com.ailun.habitat.handlers
 import android.bluetooth.BluetoothAdapter
 import android.util.Log
 import com.ailun.habitat.INodeHandler
+import com.ailun.habitat.NodeResult
 import com.ailun.habitat.WorkflowContext
 import com.ailun.habitat.WorkflowNode
 import com.ailun.habitat.api.IAccessibilityProvider
@@ -23,14 +24,14 @@ class NodeBluetoothHandler(
         if (action.isEmpty()) {
             Log.e(TAG, "Bluetooth failed: 'action' parameter is empty")
             context.variables["bluetooth_success"] = false
-            return node.nextResult()
+            return NodeResult.success(node.next)
         }
 
         val bluetoothAdapter = BluetoothAdapter.getDefaultAdapter()
         if (bluetoothAdapter == null) {
             Log.e(TAG, "Bluetooth failed: device does not support Bluetooth")
             context.variables["bluetooth_success"] = false
-            return node.nextResult()
+            return NodeResult.success(node.next)
         }
 
         var success = false
@@ -81,7 +82,7 @@ class NodeBluetoothHandler(
                 else -> {
                     Log.e(TAG, "Bluetooth failed: unknown action '$action'")
                     context.variables["bluetooth_success"] = false
-                    return node.nextResult()
+                    return NodeResult.success(node.next)
                 }
             }
         } catch (e: Exception) {
@@ -90,7 +91,7 @@ class NodeBluetoothHandler(
         }
 
         context.variables["bluetooth_success"] = success
-        return node.nextResult()
+        return NodeResult.success(node.next)
     }
 
     companion object {

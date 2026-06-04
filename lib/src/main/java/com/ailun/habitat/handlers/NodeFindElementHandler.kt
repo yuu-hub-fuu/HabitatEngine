@@ -5,6 +5,7 @@ import android.graphics.Rect
 import android.util.Log
 import android.view.accessibility.AccessibilityNodeInfo
 import com.ailun.habitat.INodeHandler
+import com.ailun.habitat.NodeResult
 import com.ailun.habitat.WorkflowContext
 import com.ailun.habitat.WorkflowNode
 import com.ailun.habitat.api.IAccessibilityProvider
@@ -41,7 +42,7 @@ class NodeFindElementHandler(
         if (rawSelector.isEmpty()) {
             Log.w(TAG, "FindElement: 'selector' parameter is empty")
             context.variables["element_found"] = false
-            return node.nextResult()
+            return NodeResult.success(node.next)
         }
 
         val selector = context.interpolate(rawSelector)
@@ -53,7 +54,7 @@ class NodeFindElementHandler(
         val service = provider?.getService() ?: run {
             Log.e(TAG, "FindElement: Accessibility service not available")
             context.variables["element_found"] = false
-            return node.nextResult()
+            return NodeResult.success(node.next)
         }
 
         Log.d(TAG, "FindElement: selector='$selector', mode=$searchMode, timeout=${timeoutMs}ms")
@@ -108,7 +109,7 @@ class NodeFindElementHandler(
             context.log("FindElement: no element found for selector '$selector'")
         }
 
-        return node.nextResult()
+        return NodeResult.success(node.next)
     }
 
     /**

@@ -11,7 +11,7 @@ import com.ailun.habitat.WorkflowNode
  */
 class NodeLoopHandler : INodeHandler {
     override suspend fun handle(node: WorkflowNode, context: WorkflowContext): NodeResult {
-        val params = node.params ?: return node.nextResult()
+        val params = node.params ?: return NodeResult.success(node.next)
         val mode = params["mode"]?.toString()?.trim()?.lowercase() ?: "count"
 
         val nextId = when (mode) {

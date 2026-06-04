@@ -4,6 +4,7 @@ import android.os.Bundle
 import android.util.Log
 import android.view.accessibility.AccessibilityNodeInfo
 import com.ailun.habitat.INodeHandler
+import com.ailun.habitat.NodeResult
 import com.ailun.habitat.WorkflowContext
 import com.ailun.habitat.WorkflowNode
 import com.ailun.habitat.api.IAccessibilityProvider
@@ -35,7 +36,7 @@ class NodeInputTextHandler(
         val rawText = node.params?.get("text")?.toString().orEmpty()
         if (rawText.isEmpty()) {
             fail(context, "'text' parameter is empty")
-            return node.nextResult()
+            return NodeResult.success(node.next)
         }
 
         val text = try { context.interpolate(rawText) }
@@ -65,7 +66,7 @@ class NodeInputTextHandler(
         } else {
             fail(context, "Input failed via $mode")
         }
-        return node.nextResult()
+        return NodeResult.success(node.next)
     }
 
     // ── A11y mode ──

@@ -1,6 +1,7 @@
 package com.ailun.habitat.handlers
 
 import com.ailun.habitat.INodeHandler
+import com.ailun.habitat.NodeResult
 import com.ailun.habitat.WorkflowContext
 import com.ailun.habitat.WorkflowNode
 import java.text.SimpleDateFormat
@@ -41,6 +42,6 @@ class NodeGetTimeHandler : INodeHandler {
         context.variables["current_second"] = cal.get(java.util.Calendar.SECOND)
         context.variables["current_weekday"] = cal.get(java.util.Calendar.DAY_OF_WEEK) - 1 // 0=Sunday
         context.variables["time_success"] = true
-        return node.nextResult()
+        return NodeResult.success(node.next)
     }
 }

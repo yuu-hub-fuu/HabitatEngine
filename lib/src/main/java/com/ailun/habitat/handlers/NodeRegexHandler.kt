@@ -1,6 +1,7 @@
 package com.ailun.habitat.handlers
 
 import com.ailun.habitat.INodeHandler
+import com.ailun.habitat.NodeResult
 import com.ailun.habitat.WorkflowContext
 import com.ailun.habitat.WorkflowNode
 
@@ -27,7 +28,7 @@ class NodeRegexHandler : INodeHandler {
         val rawInput = params["input"]?.toString() ?: ""
         if (rawInput.isEmpty()) {
             fail(context, "Missing 'input' parameter")
-            return node.nextResult()
+            return NodeResult.success(node.next)
         }
         val input = try { context.interpolate(rawInput) }
             catch (_: WorkflowContext.MissingVariableException) { rawInput }
@@ -35,7 +36,7 @@ class NodeRegexHandler : INodeHandler {
         val patternStr = params["pattern"]?.toString() ?: ""
         if (patternStr.isEmpty()) {
             fail(context, "Missing 'pattern' parameter")
-            return node.nextResult()
+            return NodeResult.success(node.next)
         }
 
         val outputVar = params["output_var"]?.toString()?.trim()?.takeIf { it.isNotEmpty() } ?: "regex_result"
@@ -47,7 +48,7 @@ class NodeRegexHandler : INodeHandler {
             patternStr.toRegex(flags)
         } catch (e: Exception) {
             fail(context, "Invalid regex: ${e.message}")
-            return node.nextResult()
+            return NodeResult.success(node.next)
         }
 
         val matches = regex.findAll(input).toList()
@@ -58,7 +59,7 @@ class NodeRegexHandler : INodeHandler {
             context.variables["regex_result"] = ""
             context.variables["regex_success"] = false
             context.log("REGEX: pattern '$patternStr' no match in input (${input.length} chars)")
-            return node.nextResult()
+            return NodeResult.success(node.next)
         }
 
         // Priority: named_group > group index
@@ -76,7 +77,7 @@ class NodeRegexHandler : INodeHandler {
         context.variables["regex_result"] = extracted
         context.variables["regex_success"] = true
         context.log("REGEX: pattern '$patternStr' → extracted '${extracted.take(60)}' (${matches.size} matches)")
-        return node.nextResult()
+        return NodeResult.success(node.next)
     }
 
     private fun fail(context: WorkflowContext, msg: String) {
