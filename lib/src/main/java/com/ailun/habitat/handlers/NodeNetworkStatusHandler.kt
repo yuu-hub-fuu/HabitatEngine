@@ -13,11 +13,6 @@ import java.net.NetworkInterface
 
 /**
  * [ACTION_NETWORK_STATUS]：查询网络状态和设备 IP。
- * params：
- * - `action`（可选）："status"（默认）/ "ip" / "all"
- * - `output_var`（可选）：输出变量前缀
- * 输出：network_connected, network_type (wifi/cellular/ethernet/none),
- *       wifi_ip, mobile_ip, network_success
  */
 class NodeNetworkStatusHandler : INodeHandler {
     override suspend fun handle(node: WorkflowNode, context: WorkflowContext): NodeResult {
@@ -25,7 +20,6 @@ class NodeNetworkStatusHandler : INodeHandler {
         val cm = context.appContext.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
 
         try {
-            // Network type
             val caps = cm?.getNetworkCapabilities(cm.activeNetwork)
             val connected = caps != null
             val type = when {
@@ -35,32 +29,31 @@ class NodeNetworkStatusHandler : INodeHandler {
                 caps.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) -> "ethernet"
                 else -> "other"
             }
-            context.variables["network_connected"] = connected
-            context.variables["network_type"] = type
 
-            // IP addresses
+            val outVars = mutableMapOf<String, Any?>(
+                "network_connected" to connected,
+                "network_type" to type,
+                "network_success" to true,
+            )
             if (action == "ip" || action == "all") {
-                context.variables["wifi_ip"] = getWifiIp(context)
-                context.variables["mobile_ip"] = getMobileIp()
+                outVars["wifi_ip"] = getWifiIp(context)
+                outVars["mobile_ip"] = getMobileIp()
             }
-
-            context.variables["network_success"] = true
+            context.log("NetworkStatus connected=$connected type=$type")
+            return NodeResult.success(node.next, outVars)
         } catch (e: Exception) {
-            context.variables["network_connected"] = false
-            context.variables["network_error"] = e.message
-            context.variables["network_success"] = false
+            context.log("NetworkStatus error: ${e.message}")
+            return NodeResult.failure(node.next, "Network status error: ${e.message}",
+                mapOf("network_connected" to false, "network_error" to e.message,
+                    "network_success" to false))
         }
-        context.log("NetworkStatus connected=${context.variables["network_connected"]} type=${context.variables["network_type"]}")
-        return NodeResult.success(node.next)
     }
 
     private fun getWifiIp(context: WorkflowContext): String {
         return try {
             val wm = context.appContext.getSystemService(Context.WIFI_SERVICE) as? WifiManager
             val ip = wm?.connectionInfo?.ipAddress ?: 0
-            if (ip != 0) {
-                String.format("%d.%d.%d.%d", ip and 0xFF, (ip shr 8) and 0xFF, (ip shr 16) and 0xFF, (ip shr 24) and 0xFF)
-            } else ""
+            if (ip != 0) String.format("%d.%d.%d.%d", ip and 0xFF, (ip shr 8) and 0xFF, (ip shr 16) and 0xFF, (ip shr 24) and 0xFF) else ""
         } catch (_: Exception) { "" }
     }
 

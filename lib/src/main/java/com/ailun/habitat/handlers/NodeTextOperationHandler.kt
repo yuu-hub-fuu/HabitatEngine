@@ -7,17 +7,14 @@ import com.ailun.habitat.WorkflowNode
 
 /**
  * [ACTION_TEXT_OPERATION]：文本操作。
- * params：`action`/`operation` (replace/substring/split/uppercase/lowercase/trim/append/prepend),
- * `input`/`source_var` — 输入文本或变量名,
- * `old`/`search`, `new`/`replace_with` — 替换参数,
- * `output_var` — 输出变量名
  */
 class NodeTextOperationHandler : INodeHandler {
     override suspend fun handle(node: WorkflowNode, context: WorkflowContext): NodeResult {
-        val params = node.params ?: return NodeResult.success(node.next)
+        val params = node.params ?: return NodeResult.failure(node.next, "Missing params")
 
         val op = (params["action"]?.toString() ?: params["operation"]?.toString())
-            ?.trim()?.lowercase() ?: return NodeResult.success(node.next)
+            ?.trim()?.lowercase()
+            ?: return NodeResult.failure(node.next, "Missing 'action'/'operation' parameter")
 
         val inputKey = (params["input"]?.toString() ?: params["source_var"]?.toString())?.trim().orEmpty()
         val sourceValue = context.getVariable(inputKey)?.toString() ?: inputKey
@@ -44,11 +41,10 @@ class NodeTextOperationHandler : INodeHandler {
             "trim" -> sourceValue.trim()
             "append" -> sourceValue + (params["text"]?.toString().orEmpty())
             "prepend" -> (params["text"]?.toString().orEmpty()) + sourceValue
-            else -> sourceValue
+            else -> return NodeResult.failure(node.next, "Unknown operation: $op")
         }
 
-        context.putVariable(outputVar, result)
         context.log("TextOp $op '$inputKey' → '$result' (→ $outputVar)")
-        return NodeResult.success(node.next)
+        return NodeResult.success(node.next, mapOf(outputVar to result, "text_op_success" to true))
     }
 }

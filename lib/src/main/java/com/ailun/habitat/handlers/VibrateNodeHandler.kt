@@ -19,7 +19,7 @@ class VibrateNodeHandler : INodeHandler {
             ?: node.params?.get("amplitude")?.toString()?.toIntOrNull()
             ?: 128
 
-        try {
+        return try {
             val vibrator: Vibrator? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 val vm = context.appContext.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? VibratorManager
                 vm?.defaultVibrator
@@ -36,13 +36,16 @@ class VibrateNodeHandler : INodeHandler {
                     vibrator.vibrate(durationMs)
                 }
                 context.log("Vibrate dur=${durationMs}ms amp=$amplitude")
+                NodeResult.success(node.next, mapOf("vibrate_success" to true))
             } else {
                 context.log("Vibrate SKIP: no vibrator available")
+                NodeResult.success(node.next, mapOf("vibrate_success" to false))
             }
         } catch (_: Exception) {
             context.log("Vibrate FAILED")
+            NodeResult.failure(node.next, "Vibrate failed",
+                mapOf("vibrate_success" to false))
         }
-        return NodeResult.success(node.next)
     }
 
     private fun parseLong(value: Any?): Long? = when (value) {
