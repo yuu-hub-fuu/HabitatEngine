@@ -11,77 +11,50 @@ import com.ailun.habitat.WorkflowNode
 
 /**
  * [ACTION_CLIPBOARD]：读取或写入系统剪贴板。
- *
- * params：
- * - `action`（必填）："get" 或 "set"
- * - `text`（set 时必填）：要写入剪贴板的文本
- * - `output_var`（get 时可选）：存储剪贴板内容的变量名，默认 clipboard_content
  */
 class NodeClipboardHandler : INodeHandler {
 
     override suspend fun handle(node: WorkflowNode, context: WorkflowContext): NodeResult {
-        val params = node.params ?: return NodeResult.success(node.next)
+        val params = node.params ?: return NodeResult.failure(node.next, "Missing params")
 
-        val action = params["action"]?.toString()?.trim()?.lowercase() ?: run {
-            Log.w(TAG, "No action specified")
-            context.variables["clipboard_success"] = false
-            return NodeResult.success(node.next)
-        }
+        val action = params["action"]?.toString()?.trim()?.lowercase()
+            ?: return NodeResult.failure(node.next, "Missing 'action' parameter",
+                mapOf("clipboard_success" to false))
 
         val clipboardManager = context.appContext.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
-        if (clipboardManager == null) {
-            Log.e(TAG, "ClipboardManager not available")
-            context.variables["clipboard_success"] = false
-            return NodeResult.success(node.next)
-        }
+            ?: return NodeResult.failure(node.next, "ClipboardManager not available",
+                mapOf("clipboard_success" to false))
 
         try {
-            when (action) {
+            return when (action) {
                 "get" -> {
                     val outputVar = params["output_var"]?.toString()?.trim()?.ifEmpty { null }
                         ?: "clipboard_content"
-
                     val clip = clipboardManager.primaryClip
                     val text = if (clip != null && clip.itemCount > 0) {
                         clip.getItemAt(0)?.text?.toString() ?: ""
-                    } else {
-                        ""
-                    }
-
-                    context.variables[outputVar] = text
-                    context.variables["clipboard_content"] = text
-                    context.variables["clipboard_success"] = true
-
+                    } else ""
                     Log.i(TAG, "Clipboard read: ${text.take(100)}${if (text.length > 100) "..." else ""}")
+                    NodeResult.success(node.next, mapOf(
+                        outputVar to text, "clipboard_content" to text, "clipboard_success" to true,
+                    ))
                 }
-
                 "set" -> {
-                    val text = context.interpolate(
-                        params["text"]?.toString() ?: ""
-                    )
+                    val text = context.interpolate(params["text"]?.toString() ?: "")
                     val clip = ClipData.newPlainText("habitat_clipboard", text)
                     clipboardManager.setPrimaryClip(clip)
-
-                    context.variables["clipboard_success"] = true
-
                     Log.i(TAG, "Clipboard set: ${text.take(100)}${if (text.length > 100) "..." else ""}")
+                    NodeResult.success(node.next, mapOf("clipboard_success" to true))
                 }
-
-                else -> {
-                    Log.w(TAG, "Unknown clipboard action: $action")
-                    context.variables["clipboard_success"] = false
-                }
+                else -> NodeResult.failure(node.next, "Unknown action: $action",
+                    mapOf("clipboard_success" to false))
             }
         } catch (e: Exception) {
             Log.e(TAG, "Clipboard operation failed: ${e.message}", e)
-            context.variables["clipboard_success"] = false
-            context.variables["clipboard_error"] = e.message ?: "Unknown error"
+            return NodeResult.failure(node.next, "Clipboard error: ${e.message}",
+                mapOf("clipboard_success" to false, "clipboard_error" to (e.message ?: "Unknown")))
         }
-
-        return NodeResult.success(node.next)
     }
 
-    companion object {
-        private const val TAG = "HabitatClipboard"
-    }
+    companion object { private const val TAG = "HabitatClipboard" }
 }

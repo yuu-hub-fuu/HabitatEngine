@@ -27,18 +27,15 @@ class NodeAppInfoHandler(
             packageName = provider.foregroundPackage ?: "unknown"
             className = provider.foregroundActivity ?: "unknown"
         } else {
-            // Fallback: use accessibility service directly
-            val service = provider?.getService()
-            packageName = service?.rootInActiveWindow?.let { root ->
-                try { root.packageName?.toString() ?: "unknown" }
-                finally { root.recycle() }
-            } ?: "unknown"
+            // No provider at all — return unknown
+            packageName = "unknown"
             className = "unknown"
         }
 
-        context.putVariable(outputVar, packageName)
-        context.putVariable(activityVar, className)
         context.log("AppInfo: $packageName / $className")
-        return NodeResult.success(node.next)
+        return NodeResult.success(node.next, mapOf(
+            outputVar to packageName,
+            activityVar to className,
+        ))
     }
 }

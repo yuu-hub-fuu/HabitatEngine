@@ -51,16 +51,16 @@ class NodeHandlerFactory(
         // ── 交互 ──
         register(ACTION_CLICK, NodeClickHandler(a11y))
         register(ACTION_SWIPE, NodeSwipeHandler(a11y))
-        register(ACTION_LONG_PRESS, NodeLongPressHandler(a11y, shell))
+        register(ACTION_LONG_PRESS, NodeLongPressHandler(a11y))
         register(ACTION_INPUT_TEXT, NodeInputTextHandler(a11y, shell))
-        register(ACTION_GLOBAL_KEY, NodeGlobalKeyHandler(a11y, shell))
-        register(ACTION_FIND_ELEMENT, NodeFindElementHandler(a11y, shell))
+        register(ACTION_GLOBAL_KEY, NodeGlobalKeyHandler(shell))
+        register(ACTION_FIND_ELEMENT, NodeFindElementHandler(a11y))
 
         // ── 系统控制 ──
         register(ACTION_SHELL, NodeShellHandler(shell))
         register(ACTION_LAUNCH_APP, NodeLaunchAppHandler())
         register(ACTION_FORCE_STOP_APP, NodeForceStopAppHandler(shell))
-        register(ACTION_SCREEN_WAKE, NodeScreenWakeHandler(shellExecutor = shell))
+        register(ACTION_SCREEN_WAKE, NodeScreenWakeHandler(shell))
         register(ACTION_WIFI, NodeWifiHandler(shell))
         register(ACTION_BLUETOOTH, NodeBluetoothHandler())
         register(ACTION_VOLUME, NodeVolumeHandler())

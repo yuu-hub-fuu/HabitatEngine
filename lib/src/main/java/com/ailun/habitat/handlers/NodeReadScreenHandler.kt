@@ -22,22 +22,18 @@ class NodeReadScreenHandler(
         val outputVar = node.params?.get("output_var")?.toString().orEmpty()
 
         val service = a11yProvider?.getService()
-            ?: run {
-                context.log("ReadScreen Error: Accessibility not running")
-                context.variables["screen_data"] = false
-                return NodeResult.success(node.next)
-            }
+            ?: return NodeResult.failure(
+                node.branches?.get("error") ?: node.next,
+                "Accessibility service not available",
+                mapOf("screen_data" to false)
+            )
 
         val roots = mutableListOf<AccessibilityNodeInfo>()
         service.windows.forEach { window ->
             if (window.type == AccessibilityWindowInfo.TYPE_APPLICATION) {
                 window.root?.let { r ->
                     val pkg = r.packageName?.toString()
-                    if (pkg != null) {
-                        roots.add(r)
-                    } else {
-                        r.recycle()
-                    }
+                    if (pkg != null) roots.add(r) else r.recycle()
                 }
             }
         }
@@ -45,40 +41,37 @@ class NodeReadScreenHandler(
         if (roots.isEmpty()) {
             service.rootInActiveWindow?.let { r ->
                 val pkg = r.packageName?.toString()
-                if (pkg != null) {
-                    roots.add(r)
-                } else {
-                    r.recycle()
-                }
+                if (pkg != null) roots.add(r) else r.recycle()
             }
         }
 
         if (roots.isEmpty()) {
-            context.variables["screen_data"] = false
-            if (outputVar.isNotEmpty()) context.putVariable(outputVar, "")
-            return NodeResult.success(node.next)
+            return NodeResult.success(node.next, mutableMapOf<String, Any?>(
+                "screen_data" to false,
+            ).apply {
+                if (outputVar.isNotEmpty()) put(outputVar, "")
+            })
         }
 
         var found = false
         val allTexts = mutableListOf<String>()
         try {
             for (root in roots) {
-                if (outputVar.isNotEmpty()) collectAllTextRecursive(root, allTexts)
-                if (containsKeywordRecursive(root, keyword)) {
-                    found = true
-                    break
+                if (keyword.isNotEmpty() && !found) {
+                    found = containsKeywordRecursive(root, keyword)
                 }
+                if (outputVar.isNotEmpty()) collectAllTextRecursive(root, allTexts)
             }
-            context.variables["screen_data"] = found
             if (found) context.log("ReadScreen: Target found in external app.")
-
-            if (outputVar.isNotEmpty()) {
-                context.putVariable(outputVar, allTexts.joinToString("\n"))
-            }
         } finally {
             roots.forEach { it.recycle() }
         }
-        return NodeResult.success(node.next)
+
+        return NodeResult.success(node.next, mutableMapOf<String, Any?>(
+            "screen_data" to found,
+        ).apply {
+            if (outputVar.isNotEmpty()) put(outputVar, allTexts.joinToString("\n"))
+        })
     }
 
     private fun containsKeywordRecursive(node: AccessibilityNodeInfo, keyword: String): Boolean {
