@@ -6,35 +6,31 @@ import com.ailun.habitat.INodeHandler
 import com.ailun.habitat.NodeResult
 import com.ailun.habitat.WorkflowContext
 import com.ailun.habitat.WorkflowNode
-import com.ailun.habitat.api.IAccessibilityProvider
-import com.ailun.habitat.api.IShellExecutor
 
 /**
  * [ACTION_BLUETOOTH]：控制蓝牙开关及获取状态。
  *
  * params：`action`（必填："on"/"off"/"toggle"/"status"）
  */
-class NodeBluetoothHandler(
-    private val provider: IAccessibilityProvider? = null,
-    private val shellExecutor: IShellExecutor? = null,
-) : INodeHandler {
+class NodeBluetoothHandler : INodeHandler {
 
     override suspend fun handle(node: WorkflowNode, context: WorkflowContext): NodeResult {
         val action = node.params?.get("action")?.toString()?.trim()?.lowercase().orEmpty()
         if (action.isEmpty()) {
             Log.e(TAG, "Bluetooth failed: 'action' parameter is empty")
-            context.variables["bluetooth_success"] = false
-            return NodeResult.success(node.next)
+            return NodeResult.failure(node.next, "Missing 'action' parameter",
+                mapOf("bluetooth_success" to false))
         }
 
         val bluetoothAdapter = BluetoothAdapter.getDefaultAdapter()
         if (bluetoothAdapter == null) {
             Log.e(TAG, "Bluetooth failed: device does not support Bluetooth")
-            context.variables["bluetooth_success"] = false
-            return NodeResult.success(node.next)
+            return NodeResult.failure(node.next, "Device does not support Bluetooth",
+                mapOf("bluetooth_success" to false))
         }
 
         var success = false
+        val outputVars = mutableMapOf<String, Any?>("bluetooth_success" to false)
 
         try {
             when (action) {
@@ -58,7 +54,8 @@ class NodeBluetoothHandler(
                 }
                 "toggle" -> {
                     @Suppress("DEPRECATION")
-                    if (bluetoothAdapter.isEnabled) {
+                    val wasEnabled = bluetoothAdapter.isEnabled
+                    if (wasEnabled) {
                         @Suppress("DEPRECATION")
                         success = bluetoothAdapter.disable()
                     } else {
@@ -66,8 +63,7 @@ class NodeBluetoothHandler(
                         success = bluetoothAdapter.enable()
                     }
                     if (success) {
-                        @Suppress("DEPRECATION")
-                        Log.i(TAG, "Bluetooth toggled to ${!bluetoothAdapter.isEnabled}")
+                        Log.i(TAG, "Bluetooth toggled from $wasEnabled to ${!wasEnabled}")
                     } else {
                         Log.e(TAG, "Bluetooth toggle failed")
                     }
@@ -75,14 +71,14 @@ class NodeBluetoothHandler(
                 "status" -> {
                     @Suppress("DEPRECATION")
                     val enabled = bluetoothAdapter.isEnabled
-                    context.variables["bluetooth_enabled"] = enabled
+                    outputVars["bluetooth_enabled"] = enabled
                     success = true
                     Log.i(TAG, "Bluetooth status: enabled=$enabled")
                 }
                 else -> {
                     Log.e(TAG, "Bluetooth failed: unknown action '$action'")
-                    context.variables["bluetooth_success"] = false
-                    return NodeResult.success(node.next)
+                    return NodeResult.failure(node.next, "Unknown action: $action",
+                        mapOf("bluetooth_success" to false))
                 }
             }
         } catch (e: Exception) {
@@ -90,8 +86,12 @@ class NodeBluetoothHandler(
             success = false
         }
 
-        context.variables["bluetooth_success"] = success
-        return NodeResult.success(node.next)
+        outputVars["bluetooth_success"] = success
+        return if (success) {
+            NodeResult.success(node.next, outputVars)
+        } else {
+            NodeResult.failure(node.next, "Bluetooth action '$action' failed", outputVars)
+        }
     }
 
     companion object {

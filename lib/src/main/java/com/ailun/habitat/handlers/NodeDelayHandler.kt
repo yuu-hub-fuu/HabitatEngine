@@ -2,6 +2,7 @@ package com.ailun.habitat.handlers
 
 import com.ailun.habitat.INodeHandler
 import com.ailun.habitat.NodeResult
+import com.ailun.habitat.RuntimeVars
 import com.ailun.habitat.WorkflowContext
 import com.ailun.habitat.WorkflowNode
 import kotlinx.coroutines.delay
@@ -27,38 +28,34 @@ class NodeDelayHandler : INodeHandler {
             is Number -> raw.toLong()
             is String -> {
                 raw.toLongOrNull() ?: run {
-                    context.log("ACTION_DELAY: invalid millis value '$raw'; failing")
-                    context.variables["_last_error"] = true
-                    context.variables["_last_error_msg"] = "Invalid delay value: $raw"
-                    return NodeResult.success(node.next)
+                    val msg = "Invalid delay value: $raw"
+                    context.log("ACTION_DELAY: $msg")
+                    return NodeResult.failure(node.next, msg)
                 }
             }
             else -> {
-                context.log("ACTION_DELAY: missing or invalid millis/ms param; failing")
-                context.variables["_last_error"] = true
-                context.variables["_last_error_msg"] = "Missing delay parameter"
-                return NodeResult.success(node.next)
+                val msg = "Missing delay parameter"
+                context.log("ACTION_DELAY: $msg")
+                return NodeResult.failure(node.next, msg)
             }
         }
 
         if (ms < 0) {
-            context.log("ACTION_DELAY: negative delay ($ms ms); failing")
-            context.variables["_last_error"] = true
-            context.variables["_last_error_msg"] = "Negative delay: $ms"
-            return NodeResult.success(node.next)
+            val msg = "Negative delay: $ms"
+            context.log("ACTION_DELAY: $msg")
+            return NodeResult.failure(node.next, msg)
         }
 
         val effective = if (ms > MAX_DELAY_MS) {
             context.log("ACTION_DELAY: requested ${ms}ms capped to ${MAX_DELAY_MS}ms (${
                 ms / 60_000
             } min → ${MAX_DELAY_MS / 60_000} min max)")
-            context.variables["delay_truncated"] = true
             MAX_DELAY_MS
         } else {
             ms
         }
 
         if (effective > 0) delay(effective)
-        return NodeResult.success(node.next)
+        return NodeResult.success(node.next, mapOf("delay_truncated" to (ms > MAX_DELAY_MS)))
     }
 }

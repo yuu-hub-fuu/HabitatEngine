@@ -1,14 +1,11 @@
 package com.ailun.habitat.handlers
 
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.util.Log
 import com.ailun.habitat.INodeHandler
 import com.ailun.habitat.NodeResult
 import com.ailun.habitat.WorkflowContext
 import com.ailun.habitat.WorkflowNode
-import com.ailun.habitat.api.IAccessibilityProvider
-import com.ailun.habitat.api.IShellExecutor
 
 /**
  * [ACTION_LAUNCH_APP]：启动指定应用。
@@ -16,16 +13,14 @@ import com.ailun.habitat.api.IShellExecutor
  * params：`package_name`（必填），`activity`（可选）
  */
 class NodeLaunchAppHandler(
-    private val provider: IAccessibilityProvider? = null,
-    private val shellExecutor: IShellExecutor? = null,
 ) : INodeHandler {
 
     override suspend fun handle(node: WorkflowNode, context: WorkflowContext): NodeResult {
         val packageName = node.params?.get("package_name")?.toString()?.trim().orEmpty()
         if (packageName.isEmpty()) {
             Log.e(TAG, "Launch app failed: 'package_name' parameter is empty")
-            context.variables["launch_success"] = false
-            return NodeResult.success(node.next)
+            return NodeResult.failure(node.next, "Missing 'package_name' parameter",
+                mapOf("launch_success" to false))
         }
 
         val activityName = node.params?.get("activity")?.toString()?.trim()
@@ -45,19 +40,18 @@ class NodeLaunchAppHandler(
 
             if (intent == null) {
                 Log.e(TAG, "Launch app failed: unable to resolve intent for package '$packageName'")
-                context.variables["launch_success"] = false
-                return NodeResult.success(node.next)
+                return NodeResult.failure(node.next, "Unable to resolve intent for '$packageName'",
+                    mapOf("launch_success" to false))
             }
 
             context.appContext.startActivity(intent)
             Log.i(TAG, "Successfully launched app: $packageName")
-            context.variables["launch_success"] = true
+            return NodeResult.success(node.next, mapOf("launch_success" to true))
         } catch (e: Exception) {
             Log.e(TAG, "Launch app error for '$packageName': ${e.message}", e)
-            context.variables["launch_success"] = false
+            return NodeResult.failure(node.next, "Launch failed: ${e.message}",
+                mapOf("launch_success" to false))
         }
-
-        return NodeResult.success(node.next)
     }
 
     companion object {

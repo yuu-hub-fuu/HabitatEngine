@@ -38,12 +38,12 @@ class NodeParseJsonHandler : INodeHandler {
             val varName = params["json_var"]?.toString()?.trim()?.takeIf { it.isNotEmpty() }
             if (varName != null) {
                 context.getVariable(varName)?.toString() ?: run {
-                    failParse(context, "Variable '$varName' not found or has no string value")
-                    return NodeResult.success(node.next)
+                    return NodeResult.failure(node.next, "Variable '$varName' not found",
+                        mapOf("parse_success" to false, "parse_error" to "Variable '$varName' not found"))
                 }
             } else {
-                failParse(context, "Neither 'json' nor 'json_var' provided")
-                return NodeResult.success(node.next)
+                return NodeResult.failure(node.next, "Neither 'json' nor 'json_var' provided",
+                    mapOf("parse_success" to false, "parse_error" to "Neither 'json' nor 'json_var' provided"))
             }
         }
         val path = params["path"]?.toString()?.trim()?.takeIf { it.isNotEmpty() }
@@ -58,8 +58,9 @@ class NodeParseJsonHandler : INodeHandler {
                     if (defaultValue != null) {
                         defaultValue
                     } else {
-                        failParse(context, "JSON path '$path' not found")
-                        return NodeResult.success(node.next)
+                        return NodeResult.failure(node.next, "JSON path '$path' not found",
+                            mapOf("parse_success" to false, "parse_error" to "JSON path '$path' not found",
+                                "parse_path_found" to false))
                     }
                 } else {
                     value
@@ -76,16 +77,17 @@ class NodeParseJsonHandler : INodeHandler {
                 else -> result.toString()
             }
             val resultKey = outputVar ?: "parsed_json"
-            context.variables[resultKey] = resultStr
-            context.variables["parsed_value"] = resultStr
-            context.variables["parse_success"] = true
-            context.variables["parse_path_found"] = true
             Log.i(TAG, "JSON parsed: ${if (path != null) "path=$path" else "root"}")
+            return NodeResult.success(node.next, mapOf(
+                resultKey to resultStr, "parsed_value" to resultStr,
+                "parse_success" to true, "parse_path_found" to true,
+            ))
         } catch (e: Exception) {
             Log.e(TAG, "JSON parse failed: ${e.message}", e)
-            failParse(context, e.message ?: "Unknown parse error")
+            return NodeResult.failure(node.next, "JSON parse error: ${e.message}",
+                mapOf("parse_success" to false, "parse_error" to (e.message ?: "Unknown"),
+                    "parse_path_found" to false))
         }
-        return NodeResult.success(node.next)
     }
 
     /**
@@ -170,12 +172,6 @@ class NodeParseJsonHandler : INodeHandler {
         }
         if (current.isNotEmpty()) tokens.add(current.toString())
         return tokens
-    }
-
-    private fun failParse(context: WorkflowContext, error: String) {
-        context.variables["parse_success"] = false
-        context.variables["parse_error"] = error
-        context.variables["parse_path_found"] = false
     }
 
     companion object {

@@ -44,9 +44,8 @@ class NodeScreenshotHandler(
                     result.contains("not found", ignoreCase = true)
                 ) {
                     Log.e(TAG, "Screenshot shell error: $result")
-                    context.variables["screenshot_success"] = false
-                    context.variables["screenshot_error"] = "Shell: $result"
-                    return NodeResult.success(node.next)
+                    return NodeResult.failure(node.next, "Shell error: $result",
+                        mapOf("screenshot_success" to false, "screenshot_error" to "Shell: $result"))
                 }
             } else {
                 context.log("Screenshot: no shell executor, trying Runtime.exec")
@@ -59,9 +58,8 @@ class NodeScreenshotHandler(
                     }
                 } catch (e: Exception) {
                     context.log("Screenshot: Runtime.exec failed: ${e.message}")
-                    context.variables["screenshot_success"] = false
-                    context.variables["screenshot_error"] = "exec: ${e.message}"
-                    return NodeResult.success(node.next)
+                    return NodeResult.failure(node.next, "exec: ${e.message}",
+                        mapOf("screenshot_success" to false, "screenshot_error" to "exec: ${e.message}"))
                 }
             }
 
@@ -74,9 +72,8 @@ class NodeScreenshotHandler(
 
             if (!exists || size == 0L) {
                 Log.e(TAG, "Screenshot: no output file at $outFile")
-                context.variables["screenshot_success"] = false
-                context.variables["screenshot_error"] = "文件未生成 ($outFile)"
-                return NodeResult.success(node.next)
+                return NodeResult.failure(node.next, "文件未生成 ($outFile)",
+                    mapOf("screenshot_success" to false, "screenshot_error" to "文件未生成 ($outFile)"))
             }
 
             val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
@@ -85,10 +82,7 @@ class NodeScreenshotHandler(
             val height = options.outHeight
             context.log("Screenshot: decoded ${width}x${height}")
 
-            context.variables["screenshot_width"] = width
-            context.variables["screenshot_height"] = height
-
-            val result: String = when (format) {
+            val resultStr: String = when (format) {
                 "file" -> outFile.absolutePath
                 else -> {
                     val bitmap = BitmapFactory.decodeFile(outFile.absolutePath)
@@ -107,17 +101,19 @@ class NodeScreenshotHandler(
                 }
             }
 
-            context.variables[outputVar ?: "screenshot_base64"] = result
-            context.variables["screenshot_success"] = true
             context.log("Screenshot: success, ${width}x${height}, format=$format")
+            return NodeResult.success(node.next, mapOf(
+                (outputVar ?: "screenshot_base64") to resultStr,
+                "screenshot_success" to true,
+                "screenshot_width" to width,
+                "screenshot_height" to height,
+            ))
         } catch (e: Exception) {
             Log.e(TAG, "Screenshot failed: ${e.message}", e)
-            context.variables["screenshot_success"] = false
-            context.variables["screenshot_error"] = e.message ?: "Unknown"
             context.log("Screenshot: exception ${e.message}")
+            return NodeResult.failure(node.next, e.message ?: "Unknown",
+                mapOf("screenshot_success" to false, "screenshot_error" to (e.message ?: "Unknown")))
         }
-
-        return NodeResult.success(node.next)
     }
 
     companion object {

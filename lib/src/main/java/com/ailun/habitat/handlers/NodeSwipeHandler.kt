@@ -16,17 +16,33 @@ class NodeSwipeHandler(
 ) : INodeHandler {
 
     override suspend fun handle(node: WorkflowNode, context: WorkflowContext): NodeResult {
-        val service = a11yProvider?.getService() ?: return NodeResult.success(node.next)
-        val p = node.params ?: return NodeResult.success(node.next)
-        val x1 = (p["x1"] as? Number)?.toInt() ?: return NodeResult.success(node.next)
-        val y1 = (p["y1"] as? Number)?.toInt() ?: return NodeResult.success(node.next)
-        val x2 = (p["x2"] as? Number)?.toInt() ?: return NodeResult.success(node.next)
-        val y2 = (p["y2"] as? Number)?.toInt() ?: return NodeResult.success(node.next)
+        val service = a11yProvider?.getService()
+            ?: return NodeResult.failure(node.next, "Accessibility service not available",
+                mapOf("swipe_success" to false))
+        val p = node.params
+            ?: return NodeResult.failure(node.next, "Missing params",
+                mapOf("swipe_success" to false))
+        val x1 = (p["x1"] as? Number)?.toInt()
+            ?: return NodeResult.failure(node.next, "Missing x1",
+                mapOf("swipe_success" to false))
+        val y1 = (p["y1"] as? Number)?.toInt()
+            ?: return NodeResult.failure(node.next, "Missing y1",
+                mapOf("swipe_success" to false))
+        val x2 = (p["x2"] as? Number)?.toInt()
+            ?: return NodeResult.failure(node.next, "Missing x2",
+                mapOf("swipe_success" to false))
+        val y2 = (p["y2"] as? Number)?.toInt()
+            ?: return NodeResult.failure(node.next, "Missing y2",
+                mapOf("swipe_success" to false))
         val duration = (p["duration"] as? Number)?.toLong() ?: 400L
 
         val ok = HabitatAccessibility.dispatchSwipe(service, x1, y1, x2, y2, duration)
-        context.variables["swipe_success"] = ok
         context.log("Swipe ($x1,$y1)→($x2,$y2) dur=${duration}ms ok=$ok")
-        return NodeResult.success(node.next)
+        return if (ok) {
+            NodeResult.success(node.next, mapOf("swipe_success" to true))
+        } else {
+            NodeResult.failure(node.next, "Swipe gesture dispatch returned false",
+                mapOf("swipe_success" to false))
+        }
     }
 }

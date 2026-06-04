@@ -5,6 +5,7 @@ import android.util.Log
 import android.view.accessibility.AccessibilityNodeInfo
 import com.ailun.habitat.INodeHandler
 import com.ailun.habitat.NodeResult
+import com.ailun.habitat.RuntimeVars
 import com.ailun.habitat.WorkflowContext
 import com.ailun.habitat.WorkflowNode
 import com.ailun.habitat.api.IAccessibilityProvider
@@ -35,8 +36,9 @@ class NodeInputTextHandler(
     override suspend fun handle(node: WorkflowNode, context: WorkflowContext): NodeResult {
         val rawText = node.params?.get("text")?.toString().orEmpty()
         if (rawText.isEmpty()) {
-            fail(context, "'text' parameter is empty")
-            return NodeResult.success(node.next)
+            context.log("InputText: 'text' parameter is empty")
+            return NodeResult.failure(node.next, "'text' parameter is empty",
+                mapOf("input_success" to false, "input_error" to "'text' parameter is empty"))
         }
 
         val text = try { context.interpolate(rawText) }
@@ -60,13 +62,17 @@ class NodeInputTextHandler(
             }
         }
 
-        context.variables["input_success"] = success
         if (success) {
             context.log("InputText: success (mode=$mode, ${text.length} chars)")
+            return NodeResult.success(node.next, mapOf("input_success" to true))
         } else {
-            fail(context, "Input failed via $mode")
+            context.log("InputText: failed via $mode")
+            return NodeResult.failure(
+                next = node.branches?.get("error") ?: node.next,
+                error = "Input failed via $mode",
+                vars = mapOf("input_success" to false, "input_error" to "Input failed via $mode"),
+            )
         }
-        return NodeResult.success(node.next)
     }
 
     // ── A11y mode ──
@@ -181,13 +187,6 @@ class NodeInputTextHandler(
             Log.e(TAG, "Clipboard input failed", e)
             false
         }
-    }
-
-    private fun fail(context: WorkflowContext, error: String) {
-        context.variables["input_success"] = false
-        context.variables["input_error"] = error
-        context.variables["_last_error"] = true
-        context.variables["_last_error_msg"] = "ACTION_INPUT_TEXT: $error"
     }
 
     companion object {

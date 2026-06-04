@@ -2,6 +2,7 @@ package com.ailun.habitat.handlers
 
 import com.ailun.habitat.INodeHandler
 import com.ailun.habitat.NodeResult
+import com.ailun.habitat.RuntimeVars
 import com.ailun.habitat.WorkflowContext
 import com.ailun.habitat.WorkflowNode
 
@@ -27,16 +28,18 @@ class NodeRegexHandler : INodeHandler {
 
         val rawInput = params["input"]?.toString() ?: ""
         if (rawInput.isEmpty()) {
-            fail(context, "Missing 'input' parameter")
-            return NodeResult.success(node.next)
+            return NodeResult.failure(node.branches?.get("error") ?: node.next,
+                "Missing 'input' parameter",
+                mapOf("regex_success" to false, "regex_error" to "Missing 'input' parameter"))
         }
         val input = try { context.interpolate(rawInput) }
             catch (_: WorkflowContext.MissingVariableException) { rawInput }
 
         val patternStr = params["pattern"]?.toString() ?: ""
         if (patternStr.isEmpty()) {
-            fail(context, "Missing 'pattern' parameter")
-            return NodeResult.success(node.next)
+            return NodeResult.failure(node.branches?.get("error") ?: node.next,
+                "Missing 'pattern' parameter",
+                mapOf("regex_success" to false, "regex_error" to "Missing 'pattern' parameter"))
         }
 
         val outputVar = params["output_var"]?.toString()?.trim()?.takeIf { it.isNotEmpty() } ?: "regex_result"
@@ -47,19 +50,19 @@ class NodeRegexHandler : INodeHandler {
         val regex = try {
             patternStr.toRegex(flags)
         } catch (e: Exception) {
-            fail(context, "Invalid regex: ${e.message}")
-            return NodeResult.success(node.next)
+            return NodeResult.failure(node.branches?.get("error") ?: node.next,
+                "Invalid regex: ${e.message}",
+                mapOf("regex_success" to false, "regex_error" to "Invalid regex: ${e.message}"))
         }
 
         val matches = regex.findAll(input).toList()
-        context.variables["regex_match_count"] = matches.size
 
         if (matches.isEmpty()) {
-            context.variables[outputVar] = ""
-            context.variables["regex_result"] = ""
-            context.variables["regex_success"] = false
             context.log("REGEX: pattern '$patternStr' no match in input (${input.length} chars)")
-            return NodeResult.success(node.next)
+            return NodeResult.success(node.next, mapOf(
+                outputVar to "", "regex_result" to "",
+                "regex_success" to false, "regex_match_count" to 0,
+            ))
         }
 
         // Priority: named_group > group index
@@ -73,17 +76,10 @@ class NodeRegexHandler : INodeHandler {
             firstMatch.groupValues.getOrElse(groupIdx) { firstMatch.value }
         }
 
-        context.variables[outputVar] = extracted
-        context.variables["regex_result"] = extracted
-        context.variables["regex_success"] = true
         context.log("REGEX: pattern '$patternStr' → extracted '${extracted.take(60)}' (${matches.size} matches)")
-        return NodeResult.success(node.next)
-    }
-
-    private fun fail(context: WorkflowContext, msg: String) {
-        context.variables["regex_success"] = false
-        context.variables["regex_error"] = msg
-        context.variables["_last_error"] = true
-        context.variables["_last_error_msg"] = "ACTION_REGEX: $msg"
+        return NodeResult.success(node.next, mapOf(
+            outputVar to extracted, "regex_result" to extracted,
+            "regex_success" to true, "regex_match_count" to matches.size,
+        ))
     }
 }

@@ -8,7 +8,6 @@ import com.ailun.habitat.INodeHandler
 import com.ailun.habitat.NodeResult
 import com.ailun.habitat.WorkflowContext
 import com.ailun.habitat.WorkflowNode
-import com.ailun.habitat.api.IAccessibilityProvider
 import com.ailun.habitat.api.IShellExecutor
 
 /**
@@ -17,7 +16,6 @@ import com.ailun.habitat.api.IShellExecutor
  * params：`package_name`（必填）
  */
 class NodeForceStopAppHandler(
-    private val provider: IAccessibilityProvider? = null,
     private val shellExecutor: IShellExecutor? = null,
 ) : INodeHandler {
 
@@ -25,8 +23,8 @@ class NodeForceStopAppHandler(
         val packageName = node.params?.get("package_name")?.toString()?.trim().orEmpty()
         if (packageName.isEmpty()) {
             Log.e(TAG, "Force stop failed: 'package_name' parameter is empty")
-            context.variables["force_stop_success"] = false
-            return NodeResult.success(node.next)
+            return NodeResult.failure(node.next, "Missing 'package_name' parameter",
+                mapOf("force_stop_success" to false))
         }
 
         var success = false
@@ -77,14 +75,14 @@ class NodeForceStopAppHandler(
             }
         }
 
-        context.variables["force_stop_success"] = success
         if (success) {
             Log.i(TAG, "Successfully force-stopped app: $packageName")
+            return NodeResult.success(node.next, mapOf("force_stop_success" to true))
         } else {
             Log.e(TAG, "Failed to force-stop app: $packageName")
+            return NodeResult.failure(node.next, "Failed to force-stop app: $packageName",
+                mapOf("force_stop_success" to false))
         }
-
-        return NodeResult.success(node.next)
     }
 
     companion object {

@@ -2,6 +2,7 @@ package com.ailun.habitat.handlers
 
 import com.ailun.habitat.INodeHandler
 import com.ailun.habitat.NodeResult
+import com.ailun.habitat.RuntimeVars
 import com.ailun.habitat.WorkflowContext
 import com.ailun.habitat.WorkflowNode
 
@@ -15,16 +16,16 @@ import com.ailun.habitat.WorkflowNode
  */
 class NodeTryCatchHandler : INodeHandler {
     override suspend fun handle(node: WorkflowNode, context: WorkflowContext): NodeResult {
-        val hasError = context.getVariable("_last_error") as? Boolean ?: false
-        val errorMsg = context.getVariable("_last_error_msg")?.toString().orEmpty()
+        val hasError = context.getVariable(RuntimeVars.LAST_ERROR) as? Boolean ?: false
+        val errorMsg = context.getVariable(RuntimeVars.LAST_ERROR_MSG)?.toString().orEmpty()
         val catchVar = node.params?.get("catch_var")?.toString() ?: "exception_msg"
 
         if (hasError) {
             context.putVariable(catchVar, errorMsg)
         }
 
-        context.putVariable("_last_error", false)
-        context.putVariable("_last_error_msg", "")
+        context.putVariable(RuntimeVars.LAST_ERROR, false)
+        context.putVariable(RuntimeVars.LAST_ERROR_MSG, "")
 
         val key = if (hasError) "error" else "success"
         context.log("TryCatch hasError=$hasError → branch=$key")

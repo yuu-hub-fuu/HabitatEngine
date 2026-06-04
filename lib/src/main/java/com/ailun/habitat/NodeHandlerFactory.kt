@@ -59,9 +59,9 @@ class NodeHandlerFactory(
         // ── 系统控制 ──
         register(ACTION_SHELL, NodeShellHandler(shell))
         register(ACTION_LAUNCH_APP, NodeLaunchAppHandler())
-        register(ACTION_FORCE_STOP_APP, NodeForceStopAppHandler(shellExecutor = shell))
+        register(ACTION_FORCE_STOP_APP, NodeForceStopAppHandler(shell))
         register(ACTION_SCREEN_WAKE, NodeScreenWakeHandler(shellExecutor = shell))
-        register(ACTION_WIFI, NodeWifiHandler())
+        register(ACTION_WIFI, NodeWifiHandler(shell))
         register(ACTION_BLUETOOTH, NodeBluetoothHandler())
         register(ACTION_VOLUME, NodeVolumeHandler())
         register(ACTION_BRIGHTNESS, NodeBrightnessHandler())

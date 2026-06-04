@@ -8,11 +8,9 @@ import com.ailun.habitat.INodeHandler
 import com.ailun.habitat.NodeResult
 import com.ailun.habitat.WorkflowContext
 import com.ailun.habitat.WorkflowNode
-import com.ailun.habitat.api.IAccessibilityProvider
 import com.ailun.habitat.api.IShellExecutor
 
 class NodeWifiHandler(
-    private val provider: IAccessibilityProvider? = null,
     private val shellExecutor: IShellExecutor? = null,
 ) : INodeHandler {
 
@@ -20,19 +18,20 @@ class NodeWifiHandler(
         val action = node.params?.get("action")?.toString()?.trim()?.lowercase().orEmpty()
         if (action.isEmpty()) {
             Log.e(TAG, "WiFi failed: 'action' parameter is empty")
-            context.variables["wifi_success"] = false
-            return NodeResult.success(node.next)
+            return NodeResult.failure(node.next, "Missing 'action' parameter",
+                mapOf("wifi_success" to false))
         }
 
         @Suppress("DEPRECATION")
         val wifiManager = context.appContext.getSystemService(Context.WIFI_SERVICE) as? WifiManager
         if (wifiManager == null) {
             Log.e(TAG, "WiFi failed: unable to get WifiManager service")
-            context.variables["wifi_success"] = false
-            return NodeResult.success(node.next)
+            return NodeResult.failure(node.next, "WifiManager unavailable",
+                mapOf("wifi_success" to false))
         }
 
         var success = false
+        val outputVars = mutableMapOf<String, Any?>("wifi_success" to false)
 
         try {
             when (action) {
@@ -57,15 +56,15 @@ class NodeWifiHandler(
                     val state = wifiManager.wifiState
                     val enabled = state == WifiManager.WIFI_STATE_ENABLED ||
                             state == WifiManager.WIFI_STATE_ENABLING
-                    context.variables["wifi_enabled"] = enabled
-                    context.variables["wifi_state"] = state
+                    outputVars["wifi_enabled"] = enabled
+                    outputVars["wifi_state"] = state
                     success = true
                     Log.i(TAG, "WiFi status: enabled=$enabled, state=$state")
                 }
                 else -> {
                     Log.e(TAG, "WiFi failed: unknown action '$action'")
-                    context.variables["wifi_success"] = false
-                    return NodeResult.success(node.next)
+                    return NodeResult.failure(node.next, "Unknown action: $action",
+                        mapOf("wifi_success" to false))
                 }
             }
         } catch (e: Exception) {
@@ -73,8 +72,12 @@ class NodeWifiHandler(
             success = false
         }
 
-        context.variables["wifi_success"] = success
-        return NodeResult.success(node.next)
+        outputVars["wifi_success"] = success
+        return if (success) {
+            NodeResult.success(node.next, outputVars)
+        } else {
+            NodeResult.failure(node.next, "WiFi action '$action' failed", outputVars)
+        }
     }
 
     private suspend fun setWifiEnabled(context: WorkflowContext, wifiManager: WifiManager, enable: Boolean): Boolean {

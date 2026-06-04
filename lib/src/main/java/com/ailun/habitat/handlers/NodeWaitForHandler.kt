@@ -30,8 +30,8 @@ class NodeWaitForHandler(
     override suspend fun handle(node: WorkflowNode, context: WorkflowContext): NodeResult {
         val params = node.params ?: emptyMap()
         val condition = params["condition"]?.toString()?.trim()?.lowercase() ?: run {
-            fail(context, "Missing 'condition' parameter")
-            return NodeResult.success(node.next)
+            return NodeResult.failure(node.next, "Missing 'condition' parameter",
+                mapOf("wait_success" to false, "wait_error" to "Missing 'condition' parameter"))
         }
         val target = params["target"]?.toString()?.trim()?.takeIf { it.isNotEmpty() }
         val varName = params["variable"]?.toString()?.trim()?.takeIf { it.isNotEmpty() }
@@ -41,7 +41,8 @@ class NodeWaitForHandler(
 
         context.log("WAIT_FOR: condition='$condition' timeout=${timeoutMs}ms poll=${pollMs}ms")
 
-        val deadline = System.currentTimeMillis() + timeoutMs
+        val startTime = System.currentTimeMillis()
+        val deadline = startTime + timeoutMs
         var met = false
 
         while (System.currentTimeMillis() < deadline) {
@@ -65,18 +66,23 @@ class NodeWaitForHandler(
             delay(pollMs)
         }
 
+        val actualElapsed = System.currentTimeMillis() - startTime
         val elapsed = deadline - System.currentTimeMillis()
-        context.variables["wait_success"] = met
-        context.variables["wait_elapsed_ms"] = timeoutMs - elapsed.coerceAtLeast(0)
 
         if (met) {
-            context.log("WAIT_FOR: condition '$condition' met after ${timeoutMs - elapsed}ms")
-            return NodeResult.success(node.next)
+            context.log("WAIT_FOR: condition '$condition' met after ${actualElapsed}ms")
+            return NodeResult.success(node.next, mapOf(
+                "wait_success" to true,
+                "wait_elapsed_ms" to actualElapsed,
+            ))
         } else {
-            context.log("WAIT_FOR: timed out after ${timeoutMs}ms waiting for '$condition'")
-            context.variables["_last_error"] = true
-            context.variables["_last_error_msg"] = "WaitFor timed out: $condition"
-            return NodeResult.success(node.next)
+            val msg = "WaitFor timed out after ${actualElapsed}ms waiting for '$condition'"
+            context.log("WAIT_FOR: $msg")
+            return NodeResult.failure(
+                next = node.branches?.get("error") ?: node.next,
+                error = msg,
+                vars = mapOf("wait_success" to false, "wait_elapsed_ms" to actualElapsed),
+            )
         }
     }
 
@@ -96,8 +102,4 @@ class NodeWaitForHandler(
         return found
     }
 
-    private fun fail(context: WorkflowContext, msg: String) {
-        context.variables["wait_success"] = false
-        context.variables["wait_error"] = msg
-    }
 }
